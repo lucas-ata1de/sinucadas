@@ -38,12 +38,3 @@ def PointInPolygon(poly: Polygon, p : Point) -> bool: #shoot a horizontal ray fr
 
     return (count%2 != 0)
 
-square = Polygon([Point(0,0),Point(0,1),Point(1,1),Point(1,0)])
-diamond = Polygon([Point(0,-1),Point(1,0),Point(0,1),Point(-1,0)])
-triangle = Polygon([Point(0,0),Point(2,1),Point(4,0)])
-
-print(PointInPolygon(square,Point(0.5,0.5)))
-print(PointInPolygon(diamond,Point(2,0)))
-print(PointInPolygon(triangle,Point(2,0.5)))
-
-
