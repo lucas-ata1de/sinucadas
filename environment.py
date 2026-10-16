@@ -7,13 +7,14 @@ recarga a quente e liberação determinística de recursos).
 """
 
 import configparser
-from contextlib import suppress
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
-from typing import Any, Callable
+from collections.abc import Callable
+from contextlib import suppress
+from pathlib import Path
+from typing import Any
 
 import glfw
 import moderngl
@@ -36,7 +37,7 @@ def apply_icon(window: Any, path: Path | str | None = None) -> None:
     if icon_path.exists():
         with suppress(Exception):
             icon_img = Image.open(icon_path).convert("RGBA")
-            glfw.set_window_icon(window, 1, [icon_img])
+            glfw.set_window_icon(window, 1, [icon_img])  # type: ignore[arg-type]
 
 
 def configure_cursor() -> None:
@@ -215,7 +216,7 @@ def trigger_hot_reload() -> bool:
         return True
 
     success = True
-    for callback in list(_HOT_RELOAD_LISTENERS):
+    for callback in _HOT_RELOAD_LISTENERS:
         try:
             callback()
         except Exception as exc:
@@ -391,12 +392,7 @@ def load_texture(
     """Carrega uma imagem em disco como textura 2D no ModernGL com inversão vertical de UV e mipmaps."""
     img = Image.open(path)
     if flip_y:
-        flip_mode = getattr(
-            getattr(Image, "Transpose", None),
-            "FLIP_TOP_BOTTOM",
-            getattr(Image, "FLIP_TOP_BOTTOM", 1),
-        )
-        img = img.transpose(flip_mode)
+        img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
     img = img.convert("RGBA")
     tex = ctx.texture(img.size, 4, img.tobytes())
     if build_mipmaps:
@@ -419,6 +415,17 @@ def get_aspect_ratio(window: Any) -> float:
     """Calcula a razão de aspecto do framebuffer (largura / altura) para matrizes de projeção perspectiva."""
     width, height = glfw.get_framebuffer_size(window)
     return width / height if height > 0 else 1.0
+
+
+def get_projection_scale(window: Any) -> tuple[float, float]:
+    """Calcula os fatores de projeção (sx, sy) para ajustar a cena sem distorção e sem transbordar."""
+    width, height = glfw.get_framebuffer_size(window)
+    if width <= 0 or height <= 0:
+        return 1.0, 1.0
+    aspect = width / height
+    sy = min(1.75, 0.98 * aspect)
+    sx = sy / aspect
+    return sx, sy
 
 
 def adjust_viewport(ctx: moderngl.Context, size: tuple[int, int]) -> bool:

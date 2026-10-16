@@ -1,21 +1,55 @@
 # Sinucadas
 
-Projeto prático de Computação Gráfica desenvolvido em Python utilizando **ModernGL**, **GLFW**, **NumPy** e **PyGLM** (OpenGL 4.0 Core Profile).
+Jogo 2D interativo de sinuca desenvolvido em Python para a Atividade 02 de Computação Gráfica, utilizando **ModernGL**, **GLFW**, **NumPy** e **PyGLM** sobre o perfil estrito **OpenGL 4.0 Core Profile**.
+
+---
+
+## 🎮 Como Jogar e Controles
+
+O jogo conta com controles completos via teclado para rotação ágil e de alta precisão, dosagem de força e execução de tacadas com física elástica em tempo real.
+
+| Tecla | Ação | Descrição |
+| :--- | :--- | :--- |
+| `←` / `→` | **Girar Mira (Ágil)** | Rotaciona o taco de sinuca e a linha guia tracejada ao redor da bola branca em velocidade normal (1.75 rad/s). |
+| `Shift + ← / →` | **Mira de Precisão** | Modo de ajuste fino (0.35 rad/s, 5x mais suave) para alinhamentos milimétricos em bolas ou caçapas distantes. |
+| `A` / `D` | **Ajuste Fino (Teclas Alternativas)** | Micro-ajustes de mira para correções minuciosas de ângulo. |
+| `↑` / `↓` | **Dosar Força** | Puxa o taco para trás aumentando a força da tacada (efeito visual de recuo dinâmico do taco) ou diminui a força. |
+| `ESPAÇO` | **Tacada** | Aplica o impulso na bola branca na direção e intensidade configuradas. |
+| `C` | **Cor do Feltro** | Alterna ciclicamente a cor da mesa em tempo real (Verde, Azul, Vermelho e Preto). |
+| `N` | **Dia / Noite** | Alterna entre o modo Dia (salão iluminado) e Noite (holofote focado na mesa com atenuação de luz). |
+| `F4` | **Hot-Reload** | Recarrega shaders GLSL em tempo real sem reiniciar a aplicação (disponível no modo Debug). |
+| `ESC` | **Sair** | Encerra a aplicação e libera com segurança todos os recursos gráficos alocados na GPU. |
+
+---
+
+## 🎱 Mecânicas e Modelo Físico
+
+1. **Mira Guiada Tracejada**: Uma linha tracejada (`moderngl.LINES`) projeta a trajetória planejada da tacada à frente da bola branca.
+2. **Animação Conicidade e Recuo do Taco**: O taco é desenhado com `moderngl.TRIANGLES` com conicidade e gradiente de madeira (marfim, madeira dourada e base escura). Ao segurar `↑`, o buffer dinâmico de vértices atualiza o recuo físico do taco.
+3. **Colisões Elásticas Bola-Bola**: Algoritmo de resolução de contato círculo-círculo com separação de sobreposição geométrica e conservação de momento linear ($e = 0.96$). Executa 3 sub-iterações por frame para estabilidade perfeita durante o estouro do triângulo de 15 bolas.
+4. **Encaçapamento Inteligente**: Bolas numeradas que entram no raio das 6 caçapas são marcadas como encaçapadas e removidas do jogo. Se a bola branca cair em uma caçapa, a falta é acusada e ela é reposicionada automaticamente na marca de saída.
+5. **Atrito Linear do Feltro e Tabelas**: Todas as bolas ativas sofrem desaceleração gradual exponencial compatível com o delta time e rebatem elasticamente nas 4 tabelas de madeira.
+6. **Projeção Isotrópica Inteligente**: O vertex shader utiliza projeção bidimensional que adapta a escala dinamicamente ao aspecto da janela. A mesa nunca transborda (mesmo em janelas muito altas e estreitas) e as bolas mantêm circularidade absoluta sem distorção.
+
+---
 
 ## 📁 Estrutura do Projeto
 
-- `main.py`: Ponto de entrada e laço principal da aplicação.
-- `environment.py`: Utilitário universal de runtime gráfico (janelas GLFW, Observer de hot-reload, compilação segura de shaders e gerenciamento determinístico de recursos).
-- `window.py`: Criação de janela, tratamento de redimensionamento do framebuffer e callbacks de entrada.
-- `graphics.py`: Módulo de renderização, compilação de shaders e primitivas geométricas (VAO/VBO/EBO).
-- `gameplay.py`: Lógica de estado do jogo e movimentação da bola.
-- `physics.py`: Física e geometria computacional 2D (testes de orientação e inclusão ponto em polígono).
-- `shaders/`: Arquivos de código-fonte dos shaders GLSL.
-- `moderngl.sh`: Script utilitário para atalho XDG no Linux e registro de ícone.
+- `main.py`: Ponto de entrada, loop principal, pooling de eventos contínuos e troca de buffers.
+- `graphics.py`: Compilação de shaders, inicialização de geometria (VAO/VBO/EBO) de múltiplas primitivas (tabelas, feltro, caçapas, bolas, taco cônico e linha de mira tracejada).
+- `gameplay.py`: Estado das 16 bolas, rotação da mira (ágil e precisão), dosagem de força, atrito do feltro, rebotes e caçapas.
+- `physics.py`: Algoritmos geométricos computacionais 2D (estruturas Point e Polygon, orientação de trios de pontos, teste de inclusão ponto em polígono, colisão elástica e detecção de caçapas).
+- `window.py`: Inicialização da janela GLFW, callbacks de teclado e redimensionamento de viewport.
+- `environment.py`: Utilitário universal de runtime (compilação segura, observer de hot-reload, projeção isotrópica e limpeza determinística).
+- `shaders/shader.vert`: Vertex shader com rotação 2D na GPU e projeção bidimensional.
+- `shaders/shader.frag`: Fragment shader com atenuação de iluminação para alternância dia/noite.
+- `Makefile`: Orquestrador de compilação, execução, testes e análise estática de código.
+
+---
 
 ## 🚀 Como Executar
 
-Instale as dependências necessárias:
+Instale as dependências:
 
 ```bash
 pip install -r requirements.txt
@@ -23,51 +57,61 @@ pip install -r requirements.txt
 
 ### Modos de Execução
 
-O jogo suporta execução em modo Debug e Release tanto pelo Makefile quanto pela linha de comando direta.
-
 #### Modo Debug (Padrão — Hot-Reload Ativo)
 
-Pressione a tecla **F4** durante a partida para recompilar os shaders da pasta `shaders/` em tempo real sem fechar a janela.
+Pressione **F4** durante a partida para recompilar shaders em tempo real.
 
-Executar via Makefile:
+Pelo Makefile:
 ```bash
 make run
 ```
 
-Executar diretamente via Python:
+Direto via Python:
 ```bash
 python3 main.py
 ```
 
 #### Modo Release (Otimizado — Hot-Reload Desativado)
 
-Executar via Makefile:
+Pelo Makefile:
 ```bash
 make release
 ```
 
-Executar diretamente via Python:
+Direto via Python:
 ```bash
 python3 main.py --release
 ```
 
-### Testes de Sanidade dos Módulos
+---
 
-Os módulos auxiliares possuem testes de sanidade integrados que validam geometria, shaders e física.
+## 🧪 Testes e Verificação de Qualidade
 
-Executar via Makefile:
+### Testes Unitários de Módulos
+
+Valida geometria computacional, física elástica, compilação de shaders e estado do jogo:
+
 ```bash
 make test
 ```
 
-Executar manualmente cada módulo:
+### Verificação Estática de Tipagem e Sintaxe
+
+Executa checagem estática de tipos com **Pyright** e análise de código com **Ruff**:
+
 ```bash
-python3 physics.py
-python3 graphics.py
-python3 gameplay.py
+make check
 ```
 
-## ⌨️ Controles
+Alias:
+```bash
+make lint
+```
 
-- **F4:** Dispara a recarga a quente dos shaders e reconstrói o pipeline gráfico (disponível no modo Debug).
-- **ESC:** Fecha a aplicação e libera os recursos gráficos.
+### Limpeza de Caches Temporários
+
+Remove recursivamente pastas `__pycache__` e arquivos `*.pyc`:
+
+```bash
+make clean
+```
