@@ -1,40 +1,65 @@
-import sys
+#!/usr/bin/env python3
+"""
+Utilitários de física e geometria computacional para o Sinucadas.
+Contém estruturas de dados para pontos e polígonos, testes de orientação
+e algoritmos de teste de inclusão ponto em polígono.
+"""
+
+from dataclasses import dataclass
+
+
+@dataclass
 class Point:
-    def __init__(self,x : float,y : float):
-        self.x=x
-        self.y=y
+    """Representa um ponto 2D com coordenadas x e y."""
 
+    x: float
+    y: float
+
+
+@dataclass
 class Polygon:
-    def __init__(self,l : list[Point]):
-        self.l = l
+    """Representa um polígono 2D definido por uma lista de vértices."""
 
-def onSegment(p : Point, q : Point, r : Point) -> bool: #check if point q is inside the edge p->r
-    return (q.x <= max(p.x,r.x) and q.x >= min(p.x,r.x) and q.y <=max(p.y,r.y) and q.y >= min(p.y,r.y))
+    vertices: list[Point]
 
-def orientation(p : Point, q : Point, r : Point) -> int: #returns the orientation of the p->q->r curve (0 collinears, 1 clockwise, 2 counterclockwise)
+
+def on_segment(p: Point, q: Point, r: Point) -> bool:
+    """Verifica se o ponto q está contido na bounding box do segmento de reta 'pr'."""
+    return min(p.x, r.x) <= q.x <= max(p.x, r.x) and min(p.y, r.y) <= q.y <= max(p.y, r.y)
+
+
+def orientation(p: Point, q: Point, r: Point) -> int:
+    """Retorna a orientação do trio ordenado (p, q, r): 0 se colinear, 1 se horário, 2 se anti-horário."""
     val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y)
-    if val==0:
-        return 0 #collinears
-    if val>0:
-        return 1 #clockwise
-    return 2 #counterclockwise
+    if val == 0:
+        return 0
+    return 1 if val > 0 else 2
 
 
-def PointInPolygon(poly: Polygon, p : Point) -> bool: #shoot a horizontal ray from p to the right and count how many edges it crosses (odd = inside)
-    count,n = 0,len(poly.l)
+def point_in_polygon(polygon: Polygon, point: Point) -> bool:
+    """Lança um raio horizontal do ponto para a direita e conta interseções de arestas (ímpar = dentro)."""
+    intersections = 0
+    vertices = polygon.vertices
+    num_vertices = len(vertices)
 
-    for i in range(n):
-        a = poly.l[i]
-        b = poly.l[(i+1)%n] 
+    for i in range(num_vertices):
+        a = vertices[i]
+        b = vertices[(i + 1) % num_vertices]
 
-        if orientation(a,b,p) == 0 and onSegment(a,p,b):
+        if orientation(a, b, point) == 0 and on_segment(a, point, b):
             return True
 
-        if (a.y > p.y) != (b.y > p.y): #a and b on opposite sides of the line y = p.y
-            t = (p.y - a.y) / (b.y - a.y)
-            x = a.x + t * (b.x - a.x)
-            if x > p.x:
-                count+=1
+        if (a.y > point.y) != (b.y > point.y):
+            t = (point.y - a.y) / (b.y - a.y)
+            x_intersect = a.x + t * (b.x - a.x)
+            if x_intersect > point.x:
+                intersections += 1
 
-    return (count%2 != 0)
+    return intersections % 2 != 0
 
+
+if __name__ == "__main__":
+    square = Polygon([Point(0.0, 0.0), Point(1.0, 0.0), Point(1.0, 1.0), Point(0.0, 1.0)])
+    assert point_in_polygon(square, Point(0.5, 0.5)) is True
+    assert point_in_polygon(square, Point(1.5, 0.5)) is False
+    print("physics.py: testes geométricos passaram com sucesso.")

@@ -1,91 +1,75 @@
+#!/usr/bin/env python3
+"""
+Ponto de entrada principal e loop da aplicação Sinucadas.
+Coordena a criação da janela, inicialização gráfica, física/gameplay e limpeza de recursos.
+Oferece suporte aos modos Debug (Hot-Reload via F4) e Release (--release).
+"""
+
 import sys
+
 import glfw
-import moderngl
-import physics
-import numpy as np
-from pathlib import Path
 
-glfw.init()
-glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR,4)
-glfw.window_hint(glfw.CONTEXT_VERSION_MINOR,4)
-glfw.window_hint(glfw.OPENGL_PROFILE,glfw.OPENGL_CORE_PROFILE)
+from environment import register_hot_reload, release_resource, update_time
+from gameplay import init_gameplay, update_gameplay
+from graphics import render_frame, setup_graphics
+from window import init_window
 
 
-janela = glfw.create_window(600,600,"Janela e contexto OpenGL",None, None)
-if not janela:
+def main() -> None:
+    """Executa o loop principal da aplicação Sinucadas."""
+    is_release = "--release" in sys.argv
+    mode_name = "Release" if is_release else "Debug"
+
+    if is_release:
+        print("[Sinucadas] 🚀 Modo Release ativado (Hot-Reload desativado).")
+    else:
+        print("[Sinucadas] 🔧 Modo Debug ativado (Hot-Reload ativo via tecla F4).")
+
+    window, ctx = init_window(
+        size=(800, 600),
+        title=f"Sinucadas [{mode_name}]",
+        enable_hot_reload=not is_release,
+    )
+    prog, vbo, ebo, vao = setup_graphics(ctx)
+    pipeline = {"prog": prog, "vbo": vbo, "ebo": ebo, "vao": vao}
+
+    if not is_release:
+        def reload_pipeline() -> None:
+            """Recarrega shaders e reconstrói o pipeline gráfico ao disparar hot-reload."""
+            try:
+                new_prog, new_vbo, new_ebo, new_vao = setup_graphics(ctx)
+                old_vao, old_vbo, old_ebo, old_prog = (
+                    pipeline["vao"],
+                    pipeline["vbo"],
+                    pipeline["ebo"],
+                    pipeline["prog"],
+                )
+                pipeline["prog"] = new_prog
+                pipeline["vbo"] = new_vbo
+                pipeline["ebo"] = new_ebo
+                pipeline["vao"] = new_vao
+                release_resource(old_vao, old_vbo, old_ebo, old_prog)
+                print("[Sinucadas] ✅ Shaders recarregados e pipeline reconstruído com sucesso!")
+            except Exception as exc:
+                print(f"[Sinucadas] ❌ Erro ao recarregar shaders: {exc}", file=sys.stderr)
+
+        register_hot_reload(reload_pipeline)
+
+    y_pos = init_gameplay()
+    t0 = glfw.get_time()
+
+    while not glfw.window_should_close(window):
+        t0, dt = update_time(t0)
+
+        y_pos = update_gameplay(y_pos, dt)
+        render_frame(ctx, pipeline["prog"], pipeline["vao"], y_pos)
+
+        glfw.swap_buffers(window)
+        glfw.poll_events()
+
+    release_resource(pipeline, ctx)
     glfw.terminate()
-    sys.exit("Nao abriu a janela")
 
 
-
-glfw.make_context_current(janela)
-glfw.swap_interval(1)
-ctx = moderngl.create_context()
-
-SHADERS = Path(__file__).parent / "shaders"
-
-prog = ctx.program(vertex_shader=(SHADERS / "bola.vert").read_text(encoding="utf-8"),
-                   fragment_shader=(SHADERS / "shader.frag").read_text(encoding="utf-8"),)
-
-
-
-vertices = np.array([
-     -0.5, 0.5,  0.0, 1.0,   1.0, 0.0, 0.0, 1.0,
-    -0.5, -0.5, 0.0, 1.0,    1.0, 0.0, 0.0, 1.0,
-    0.5, -0.5, 0.0, 1.0,     1.0, 0.0, 0.0, 1.0,
-    0.5, 0.5, 0.0 ,1.0,      1.0, 0.0, 0.0, 1.0,
-],dtype='f4')
-
-indices = np.array([0,1,2,3,2,0],dtype='u4')
-
-
-vbo_vertex = ctx.buffer(vertices.tobytes())
-ebo = ctx.buffer(indices.tobytes())
-
-vao = ctx.vertex_array(prog, [(vbo_vertex, '4f 4f', 'vPosition','vColors')],index_buffer=ebo)
-
-
-def keyp(window,key,scancode,action,mods):
-    if action != glfw.PRESS:
-        return
-    if key == glfw.KEY_ESCAPE:
-        glfw.set_window_should_close(janela,True)
-
-
-glfw.set_key_callback(janela,keyp)
-
-
-velocidade = 0.5
-partida,chegada = -0.9,0.9
-
-y_vertex = partida
-t0 = glfw.get_time()
-quadros,marco = 0,t0
-
-
-while not glfw.window_should_close(janela):
-    t1 = glfw.get_time()
-    dt = t1 - t0
-    t0=t1
-
-    y_vertex += velocidade * dt
-
-    if y_vertex > chegada:
-        y_vertex = partida
-    
-    ctx.clear(1,1,1,1)
-    prog['u_deslocamento'].value = (0,y_vertex)
-    prog['u_escala'].value = 0.1
-    vao.render(moderngl.TRIANGLES)
-
-    glfw.swap_buffers(janela)
-    glfw.poll_events()
-
-
-ebo.release()
-vao.release()
-vbo_vertex.release()
-prog.release()
-glfw.terminate()
-
-
+if __name__ == "__main__":
+    main()
