@@ -143,5 +143,18 @@ def configure_window_hint(app_id: str = "moderngl") -> None:
 
 
 if __name__ == "__main__":
+    assert DEFAULT_ICON.exists(), f"Default icon not found: {DEFAULT_ICON}"
     configure_cursor()
-    print("environment.py: mouse cursor and icon environment utilities validated successfully.")
+    assert "XCURSOR_THEME" in os.environ and os.environ["XCURSOR_THEME"], "XCURSOR_THEME not set"
+    assert "XCURSOR_SIZE" in os.environ and os.environ["XCURSOR_SIZE"].isdigit(), "XCURSOR_SIZE invalid"
+
+    if glfw.init():
+        configure_window_hint("sinucadas-test")
+        glfw.terminate()
+
+    print(
+        f"environment.py: mouse cursor and icon environment utilities validated successfully "
+        f"(XCURSOR_THEME='{os.environ.get('XCURSOR_THEME')}', "
+        f"XCURSOR_SIZE={os.environ.get('XCURSOR_SIZE')}, "
+        f"icon='{DEFAULT_ICON.name}')."
+    )
