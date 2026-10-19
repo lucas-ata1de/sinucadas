@@ -38,7 +38,7 @@ O jogo conta com controles completos via teclado para rotação ágil e de alta 
 - `main.py`: Ponto de entrada, loop principal, pooling de eventos contínuos e troca de buffers.
 - `graphics.py`: Compilação de shaders, inicialização de geometria (VAO/VBO/EBO) de múltiplas primitivas (tabelas, feltro, caçapas, bolas, taco cônico e linha de mira tracejada).
 - `gameplay.py`: Estado das 16 bolas, rotação da mira (ágil e precisão), dosagem de força, atrito do feltro, rebotes e caçapas.
-- `physics.py`: Algoritmos geométricos computacionais 2D (estruturas Point e Polygon, orientação de trios de pontos, teste de inclusão ponto em polígono, colisão elástica e detecção de caçapas).
+- `physics.py`: Motor de física 2D (colisões elásticas entre bolas com conservação de momento linear, rebote nas tabelas da mesa e detecção de encaçapamento).
 - `window.py`: Inicialização da janela GLFW, callbacks de teclado e redimensionamento de viewport.
 - `environment.py`: Utilitário universal de runtime (compilação segura, observer de hot-reload, projeção isotrópica e limpeza determinística).
 - `shaders/shader.vert`: Vertex shader com rotação 2D na GPU e projeção bidimensional.
@@ -59,16 +59,11 @@ uv venv --system-site-packages && uv sync
 
 ### Modos de Execução
 
-Executar pelo Makefile (que chama o `uv run` automaticamente):
+Você pode executar o jogo tanto pelo Makefile (que chama o `uv run` automaticamente) quanto diretamente via Python.
 
-```bash
-make run      # Executa o jogo em modo Debug (Hot-Reload ativo via F4)
-make release  # Executa o jogo em modo Release (máxima performance)
-make test     # Executa os testes unitários de física e geometria
-make check    # Executa a verificação estática com Ruff e Pyright
-```
+#### Modo Debug (Padrão — Hot-Reload Ativo)
 
-Pressione **F4** durante a partida para recompilar shaders em tempo real.
+Executa o jogo em modo de desenvolvimento. Pressione **`F4`** durante a partida para recompilar shaders em tempo real sem reiniciar a aplicação ou fechar a janela:
 
 Pelo Makefile:
 ```bash
@@ -81,6 +76,8 @@ python3 main.py
 ```
 
 #### Modo Release (Otimizado — Hot-Reload Desativado)
+
+Executa o jogo em modo de produção focado em máxima performance e estabilidade, com o listener de hot-reload desativado:
 
 Pelo Makefile:
 ```bash

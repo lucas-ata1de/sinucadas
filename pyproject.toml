@@ -18,3 +18,18 @@ dev = [
 
 [tool.uv]
 package = false
+
+[tool.ruff]
+cache-dir = "/tmp/ruff-cache"
+line-length = 96
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true

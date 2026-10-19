@@ -5,48 +5,97 @@ Gerencia a compilação dos shaders, geometria da mesa, caçapas, bolas e linhas
 Utiliza múltiplas primitivas (TRIANGLES, TRIANGLE_FAN, LINE_STRIP) e reaproveita buffers.
 """
 
+import sys
 from math import cos, pi, sin
 from pathlib import Path
 from typing import Any, cast
 
+import glfw
 import moderngl
 import numpy as np
 
-from environment import create_program
+
+def _resolve_shader_code(source: str | Path | None) -> str | None:
+    """Lê o código-fonte de um shader a partir de arquivo ou preserva a string GLSL direta."""
+    if source is None:
+        return None
+    if isinstance(source, Path) or (
+        isinstance(source, str) and "\n" not in source and Path(source).is_file()
+    ):
+        return Path(source).read_text(encoding="utf-8")
+    return str(source)
 
 
-def set_uniform(prog: moderngl.Program, name: str, value: Any) -> None:
+def create_program(
+    ctx: moderngl.Context,
+    vertex_shader: str | Path,
+    fragment_shader: str | Path | None = None,
+    geometry_shader: str | Path | None = None,
+    tess_control_shader: str | Path | None = None,
+    tess_evaluation_shader: str | Path | None = None,
+) -> moderngl.Program:
+    """Compila e vincula um programa ModernGL a partir de arquivos (Path) ou strings de código GLSL."""
+    vs = _resolve_shader_code(vertex_shader)
+    fs = _resolve_shader_code(fragment_shader)
+    gs = _resolve_shader_code(geometry_shader)
+    tcs = _resolve_shader_code(tess_control_shader)
+    tes = _resolve_shader_code(tess_evaluation_shader)
+
+    try:
+        kwargs: dict[str, Any] = {"vertex_shader": vs}
+        if fs is not None:
+            kwargs["fragment_shader"] = fs
+        if gs is not None:
+            kwargs["geometry_shader"] = gs
+        if tcs is not None:
+            kwargs["tess_control_shader"] = tcs
+        if tes is not None:
+            kwargs["tess_evaluation_shader"] = tes
+        return ctx.program(**kwargs)
+    except moderngl.Error as err:
+        print(f"\n[SHADER COMPILATION ERROR]\n{err}\n", file=sys.stderr)
+        raise
+
+
+def _set_uniform(prog: moderngl.Program, name: str, value: Any) -> None:
     """Atualiza o valor de um uniforme no programa GLSL com tipagem estática segura."""
     cast(moderngl.Uniform, prog[name]).value = value
 
+
 SHADERS_DIR = Path(__file__).parent / "shaders"
 
-MESA_LARGURA = 0.90
-MESA_ALTURA = 0.45
-BORDA_ESPESSURA = 0.10
+TABLE_WIDTH = 0.90
+TABLE_HEIGHT = 0.45
+CUSHION_THICKNESS = 0.10
 
-POSICOES_CACAPAS = (
-    (-0.88, -0.43),
-    (0.00, -0.45),
-    (0.88, -0.43),
-    (-0.88, 0.43),
-    (0.00, 0.45),
-    (0.88, 0.43),
+POCKET_BOTTOM_LEFT = (-0.88, -0.43)
+POCKET_BOTTOM_CENTER = (0.00, -0.45)
+POCKET_BOTTOM_RIGHT = (0.88, -0.43)
+POCKET_TOP_LEFT = (-0.88, 0.43)
+POCKET_TOP_CENTER = (0.00, 0.45)
+POCKET_TOP_RIGHT = (0.88, 0.43)
+
+POCKET_POSITIONS = (
+    POCKET_BOTTOM_LEFT,
+    POCKET_BOTTOM_CENTER,
+    POCKET_BOTTOM_RIGHT,
+    POCKET_TOP_LEFT,
+    POCKET_TOP_CENTER,
+    POCKET_TOP_RIGHT,
 )
 
-RAIO_CACAPA = 0.055
-RAIO_BOLA = 0.032
+POCKET_RADIUS = 0.055
+BALL_RADIUS = 0.032
 
-CORES_FELTRO = (
-    (0.10, 0.52, 0.24, 1.0),
-    (0.12, 0.38, 0.65, 1.0),
-    (0.55, 0.12, 0.18, 1.0),
-    (0.16, 0.18, 0.20, 1.0),
-)
+FELT_GREEN = (0.10, 0.52, 0.24, 1.0)
+FELT_BLUE = (0.12, 0.38, 0.65, 1.0)
+FELT_RED = (0.55, 0.12, 0.18, 1.0)
+FELT_BLACK = (0.16, 0.18, 0.20, 1.0)
 
-COR_MADEIRA = (0.35, 0.18, 0.08, 1.0)
-COR_BORDA_INTERNA = (0.22, 0.11, 0.05, 1.0)
-COR_LINHA = (0.90, 0.90, 0.90, 0.5)
+FELT_COLORS = (FELT_GREEN, FELT_BLUE, FELT_RED, FELT_BLACK)
+
+WOOD_COLOR = (0.35, 0.18, 0.08, 1.0)
+LINE_COLOR = (0.90, 0.90, 0.90, 0.5)
 
 
 def create_circle_geometry(num_segments: int = 36) -> np.ndarray:
@@ -62,57 +111,38 @@ def create_circle_geometry(num_segments: int = 36) -> np.ndarray:
 
 def create_table_geometry() -> tuple[np.ndarray, np.ndarray]:
     """Gera os vértices e índices (EBO) da área de feltro e das 4 tabelas de madeira (TRIANGLES)."""
-    lx, ly = MESA_LARGURA, MESA_ALTURA
-    bx, by = MESA_LARGURA + BORDA_ESPESSURA, MESA_ALTURA + BORDA_ESPESSURA
+    lx, ly = TABLE_WIDTH, TABLE_HEIGHT
+    bx, by = TABLE_WIDTH + CUSHION_THICKNESS, TABLE_HEIGHT + CUSHION_THICKNESS
 
-    c_m = COR_MADEIRA
-    c_f = (1.0, 1.0, 1.0, 1.0)
+    wood_color = WOOD_COLOR
+    felt_color = (1.0, 1.0, 1.0, 1.0)
 
-    vertices = [
-        [-lx, -ly, 0.0, 1.0, *c_f],
-        [lx, -ly, 0.0, 1.0, *c_f],
-        [lx, ly, 0.0, 1.0, *c_f],
-        [-lx, ly, 0.0, 1.0, *c_f],
-        [-bx, -by, 0.0, 1.0, *c_m],
-        [bx, -by, 0.0, 1.0, *c_m],
-        [bx, by, 0.0, 1.0, *c_m],
-        [-bx, by, 0.0, 1.0, *c_m],
-    ]
+    vertices = np.array(
+        [
+            [-lx, -ly, 0.0, 1.0, *felt_color],
+            [lx, -ly, 0.0, 1.0, *felt_color],
+            [lx, ly, 0.0, 1.0, *felt_color],
+            [-lx, ly, 0.0, 1.0, *felt_color],
+            [-bx, -by, 0.0, 1.0, *wood_color],
+            [bx, -by, 0.0, 1.0, *wood_color],
+            [bx, by, 0.0, 1.0, *wood_color],
+            [-bx, by, 0.0, 1.0, *wood_color],
+        ],
+        dtype="f4",
+    ).ravel()
 
-    indices = [
-        0,
-        1,
-        2,
-        2,
-        3,
-        0,
-        4,
-        5,
-        1,
-        1,
-        0,
-        4,
-        3,
-        2,
-        6,
-        6,
-        7,
-        3,
-        4,
-        0,
-        3,
-        3,
-        7,
-        4,
-        1,
-        5,
-        6,
-        6,
-        2,
-        1,
-    ]
+    indices = np.array(
+        [
+            [0, 1, 2, 2, 3, 0],
+            [4, 5, 1, 1, 0, 4],
+            [3, 2, 6, 6, 7, 3],
+            [4, 0, 3, 3, 7, 4],
+            [1, 5, 6, 6, 2, 1],
+        ],
+        dtype="u4",
+    ).ravel()
 
-    return np.array(vertices, dtype="f4").ravel(), np.array(indices, dtype="u4")
+    return vertices, indices
 
 
 def create_table_lines() -> np.ndarray:
@@ -120,8 +150,8 @@ def create_table_lines() -> np.ndarray:
     x_baulk = -0.45
     r_d = 0.18
     vertices = [
-        [x_baulk, -MESA_ALTURA, 0.0, 1.0, *COR_LINHA],
-        [x_baulk, MESA_ALTURA, 0.0, 1.0, *COR_LINHA],
+        [x_baulk, -TABLE_HEIGHT, 0.0, 1.0, *LINE_COLOR],
+        [x_baulk, TABLE_HEIGHT, 0.0, 1.0, *LINE_COLOR],
     ]
 
     segments = 24
@@ -129,7 +159,7 @@ def create_table_lines() -> np.ndarray:
         angle = (pi / 2.0) + (pi * i) / segments
         x = x_baulk + r_d * cos(angle)
         y = r_d * sin(angle)
-        vertices.append([x, y, 0.0, 1.0, *COR_LINHA])
+        vertices.append([x, y, 0.0, 1.0, *LINE_COLOR])
 
     return np.array(vertices, dtype="f4").ravel()
 
@@ -139,13 +169,13 @@ def create_aim_line_geometry(length: float = 0.45, num_dashes: int = 8) -> np.nd
     vertices: list[list[float]] = []
     dash_len = length / (num_dashes * 1.6)
     gap_len = dash_len * 0.6
-    cor_mira = (1.0, 1.0, 0.65, 0.75)
+    aim_color = (1.0, 1.0, 0.65, 0.75)
 
-    x_cur = RAIO_BOLA + 0.015
+    x_cur = BALL_RADIUS + 0.015
     for _ in range(num_dashes):
         x_next = x_cur + dash_len
-        vertices.append([x_cur, 0.0, 0.0, 1.0, *cor_mira])
-        vertices.append([x_next, 0.0, 0.0, 1.0, *cor_mira])
+        vertices.append([x_cur, 0.0, 0.0, 1.0, *aim_color])
+        vertices.append([x_next, 0.0, 0.0, 1.0, *aim_color])
         x_cur = x_next + gap_len
 
     return np.array(vertices, dtype="f4").ravel()
@@ -153,7 +183,7 @@ def create_aim_line_geometry(length: float = 0.45, num_dashes: int = 8) -> np.nd
 
 def create_cue_geometry(power: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
     """Gera a malha cônica do taco de sinuca (TRIANGLES com EBO) com recuo proporcional à força."""
-    x_tip = -(RAIO_BOLA + 0.025 + power * 0.16)
+    x_tip = -(BALL_RADIUS + 0.025 + power * 0.16)
     x_mid = x_tip - 0.22
     x_base = x_tip - 0.50
 
@@ -161,27 +191,50 @@ def create_cue_geometry(power: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
     w_mid = 0.008
     w_base = 0.013
 
-    c_tip = (0.92, 0.92, 0.96, 1.0)
-    c_mid = (0.75, 0.50, 0.22, 1.0)
-    c_base = (0.28, 0.14, 0.05, 1.0)
+    tip_color = (0.92, 0.92, 0.96, 1.0)
+    mid_color = (0.75, 0.50, 0.22, 1.0)
+    base_color = (0.28, 0.14, 0.05, 1.0)
 
-    vertices = [
-        [x_tip, -w_tip, 0.0, 1.0, *c_tip],
-        [x_tip, w_tip, 0.0, 1.0, *c_tip],
-        [x_mid, w_mid, 0.0, 1.0, *c_mid],
-        [x_mid, -w_mid, 0.0, 1.0, *c_mid],
-        [x_mid, -w_mid, 0.0, 1.0, *c_mid],
-        [x_mid, w_mid, 0.0, 1.0, *c_mid],
-        [x_base, w_base, 0.0, 1.0, *c_base],
-        [x_base, -w_base, 0.0, 1.0, *c_base],
-    ]
+    vertices = np.array(
+        [
+            [x_tip, -w_tip, 0.0, 1.0, *tip_color],
+            [x_tip, w_tip, 0.0, 1.0, *tip_color],
+            [x_mid, w_mid, 0.0, 1.0, *mid_color],
+            [x_mid, -w_mid, 0.0, 1.0, *mid_color],
+            [x_mid, -w_mid, 0.0, 1.0, *mid_color],
+            [x_mid, w_mid, 0.0, 1.0, *mid_color],
+            [x_base, w_base, 0.0, 1.0, *base_color],
+            [x_base, -w_base, 0.0, 1.0, *base_color],
+        ],
+        dtype="f4",
+    ).ravel()
 
-    indices = [
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4,
-    ]
+    indices = np.array([[0, 1, 2, 2, 3, 0], [4, 5, 6, 6, 7, 4]], dtype="u4").ravel()
 
-    return np.array(vertices, dtype="f4").ravel(), np.array(indices, dtype="u4")
+    return vertices, indices
+
+
+def _create_vao(
+    ctx: moderngl.Context, prog: moderngl.Program, verts: np.ndarray
+) -> tuple[moderngl.Buffer, moderngl.VertexArray]:
+    """Cria um VBO e um VAO de atributos pos+cor (4f 4f)."""
+    vbo = ctx.buffer(verts.tobytes())
+    vao = ctx.vertex_array(prog, [(vbo, "4f 4f", "v_position", "v_color")])
+    return vbo, vao
+
+
+def _create_indexed_vao(
+    ctx: moderngl.Context,
+    prog: moderngl.Program,
+    verts: np.ndarray,
+    indices: np.ndarray,
+    dynamic: bool = False,
+) -> tuple[moderngl.Buffer, moderngl.Buffer, moderngl.VertexArray]:
+    """Cria um VBO, um EBO e um VAO indexado de atributos pos+cor (4f 4f)."""
+    vbo = ctx.buffer(verts.tobytes(), dynamic=dynamic)
+    ebo = ctx.buffer(indices.tobytes())
+    vao = ctx.vertex_array(prog, [(vbo, "4f 4f", "v_position", "v_color")], index_buffer=ebo)
+    return vbo, ebo, vao
 
 
 def setup_graphics(ctx: moderngl.Context) -> dict[str, Any]:
@@ -189,42 +242,20 @@ def setup_graphics(ctx: moderngl.Context) -> dict[str, Any]:
     prog = create_program(ctx, SHADERS_DIR / "shader.vert", SHADERS_DIR / "shader.frag")
 
     table_verts, table_indices = create_table_geometry()
-    vbo_table = ctx.buffer(table_verts.tobytes())
-    ebo_table = ctx.buffer(table_indices.tobytes())
-    vao_table = ctx.vertex_array(
-        prog,
-        [(vbo_table, "4f 4f", "v_position", "v_color")],
-        index_buffer=ebo_table,
-    )
+    vbo_table, ebo_table, vao_table = _create_indexed_vao(ctx, prog, table_verts, table_indices)
 
-    circle_verts = create_circle_geometry(num_segments=36)
-    vbo_circle = ctx.buffer(circle_verts.tobytes())
-    vao_circle = ctx.vertex_array(
-        prog,
-        [(vbo_circle, "4f 4f", "v_position", "v_color")],
-    )
+    circle_verts = create_circle_geometry()
+    vbo_circle, vao_circle = _create_vao(ctx, prog, circle_verts)
 
     line_verts = create_table_lines()
-    vbo_lines = ctx.buffer(line_verts.tobytes())
-    vao_lines = ctx.vertex_array(
-        prog,
-        [(vbo_lines, "4f 4f", "v_position", "v_color")],
-    )
+    vbo_lines, vao_lines = _create_vao(ctx, prog, line_verts)
 
     aim_verts = create_aim_line_geometry()
-    vbo_aim = ctx.buffer(aim_verts.tobytes())
-    vao_aim = ctx.vertex_array(
-        prog,
-        [(vbo_aim, "4f 4f", "v_position", "v_color")],
-    )
+    vbo_aim, vao_aim = _create_vao(ctx, prog, aim_verts)
 
     cue_verts, cue_indices = create_cue_geometry(0.0)
-    vbo_cue = ctx.buffer(cue_verts.tobytes(), dynamic=True)
-    ebo_cue = ctx.buffer(cue_indices.tobytes())
-    vao_cue = ctx.vertex_array(
-        prog,
-        [(vbo_cue, "4f 4f", "v_position", "v_color")],
-        index_buffer=ebo_cue,
+    vbo_cue, ebo_cue, vao_cue = _create_indexed_vao(
+        ctx, prog, cue_verts, cue_indices, dynamic=True
     )
 
     return {
@@ -247,6 +278,81 @@ def setup_graphics(ctx: moderngl.Context) -> dict[str, Any]:
     }
 
 
+def _draw_table(
+    prog: moderngl.Program, vao_table: moderngl.VertexArray, felt_color: tuple[float, ...]
+) -> None:
+    """Renderiza a geometria da mesa de sinuca com a cor do feltro configurada."""
+    _set_uniform(prog, "u_offset", (0.0, 0.0))
+    _set_uniform(prog, "u_scale", 1.0)
+    _set_uniform(prog, "u_color", felt_color)
+    vao_table.render(moderngl.TRIANGLES)
+
+
+def _draw_table_lines(prog: moderngl.Program, vao_lines: moderngl.VertexArray) -> None:
+    """Renderiza as marcações de baulk e saída com primitiva LINE_STRIP."""
+    _set_uniform(prog, "u_color", (1.0, 1.0, 1.0, 1.0))
+    vao_lines.render(moderngl.LINE_STRIP)
+
+
+def _draw_pockets(
+    prog: moderngl.Program, vao_circle: moderngl.VertexArray, circle_count: int
+) -> None:
+    """Renderiza as 6 caçapas da mesa com círculos escurecidos."""
+    pocket_color = (0.04, 0.04, 0.05, 1.0)
+    _set_uniform(prog, "u_scale", POCKET_RADIUS)
+    _set_uniform(prog, "u_color", pocket_color)
+    for pocket_pos in POCKET_POSITIONS:
+        _set_uniform(prog, "u_offset", pocket_pos)
+        vao_circle.render(moderngl.TRIANGLE_FAN, vertices=circle_count)
+
+
+def _draw_balls(
+    prog: moderngl.Program,
+    vao_circle: moderngl.VertexArray,
+    circle_count: int,
+    balls: list[dict[str, Any]],
+) -> None:
+    """Renderiza todas as bolas ativas em suas posições atuais com suas respectivas cores."""
+    _set_uniform(prog, "u_scale", BALL_RADIUS)
+    for ball in balls:
+        if ball.get("pocketed", False):
+            continue
+        _set_uniform(prog, "u_offset", tuple(ball["pos"]))
+        _set_uniform(prog, "u_color", ball["color"])
+        vao_circle.render(moderngl.TRIANGLE_FAN, vertices=circle_count)
+
+
+def _draw_cue_and_aim(
+    prog: moderngl.Program,
+    pipeline: dict[str, Any],
+    cue: dict[str, Any],
+    cue_ball_pos: list[float],
+) -> None:
+    """Atualiza a geometria dinâmica do taco e renderiza a linha guia de mira e o taco."""
+    cue_verts, _ = create_cue_geometry(cue.get("power", 0.0))
+    pipeline["vbo_cue"].write(cue_verts.tobytes())
+
+    _set_uniform(prog, "u_angle", cue.get("angle", 0.0))
+    _set_uniform(prog, "u_offset", tuple(cue_ball_pos))
+    _set_uniform(prog, "u_scale", 1.0)
+    _set_uniform(prog, "u_color", (1.0, 1.0, 1.0, 1.0))
+
+    pipeline["vao_aim"].render(moderngl.LINES, vertices=pipeline["aim_count"])
+    pipeline["vao_cue"].render(moderngl.TRIANGLES)
+    _set_uniform(prog, "u_angle", 0.0)
+
+
+def get_projection_scale(window: Any) -> tuple[float, float]:
+    """Calcula os fatores de projeção (sx, sy) para ajustar a cena sem distorção e sem transbordar."""
+    width, height = glfw.get_framebuffer_size(window)
+    if width <= 0 or height <= 0:
+        return 1.0, 1.0
+    aspect = width / height
+    sy = min(1.75, 0.98 * aspect)
+    sx = sy / aspect
+    return sx, sy
+
+
 def render_scene(
     ctx: moderngl.Context,
     pipeline: dict[str, Any],
@@ -256,64 +362,28 @@ def render_scene(
     felt_color_index: int = 0,
     night_mode: bool = False,
 ) -> None:
-    """Renderiza a cena completa de sinuca com projeção isotrópica e atenuação de iluminação."""
+    """Renderiza a cena completa de sinuca com projeção isotrópica e iluminação modulada."""
     prog = pipeline["prog"]
-
     bg_color = (0.05, 0.05, 0.08, 1.0) if night_mode else (0.82, 0.82, 0.85, 1.0)
     attenuation = 0.40 if night_mode else 1.0
-    felt_color = CORES_FELTRO[felt_color_index % len(CORES_FELTRO)]
+    felt_color = FELT_COLORS[felt_color_index % len(FELT_COLORS)]
 
     ctx.clear(*bg_color)
 
     scale_vec = (
-        (proj_scale[0], proj_scale[1])
-        if isinstance(proj_scale, (tuple, list))
-        else (1.0 / proj_scale, 1.0)
+        tuple(proj_scale) if isinstance(proj_scale, (tuple, list)) else (1.0 / proj_scale, 1.0)
     )
-    set_uniform(prog, "u_proj", scale_vec)
-    set_uniform(prog, "u_attenuation", attenuation)
-    set_uniform(prog, "u_angle", 0.0)
+    _set_uniform(prog, "u_proj", scale_vec)
+    _set_uniform(prog, "u_attenuation", attenuation)
+    _set_uniform(prog, "u_angle", 0.0)
 
-    set_uniform(prog, "u_offset", (0.0, 0.0))
-    set_uniform(prog, "u_scale", 1.0)
-    set_uniform(prog, "u_color", felt_color)
-    pipeline["vao_table"].render(moderngl.TRIANGLES)
-
-    set_uniform(prog, "u_color", (1.0, 1.0, 1.0, 1.0))
-    pipeline["vao_lines"].render(moderngl.LINE_STRIP)
-
-    cor_cacapa = (0.04, 0.04, 0.05, 1.0)
-    set_uniform(prog, "u_scale", RAIO_CACAPA)
-    set_uniform(prog, "u_color", cor_cacapa)
-    for px, py in POSICOES_CACAPAS:
-        set_uniform(prog, "u_offset", (px, py))
-        pipeline["vao_circle"].render(
-            moderngl.TRIANGLE_FAN, vertices=pipeline["circle_count"]
-        )
-
-    set_uniform(prog, "u_scale", RAIO_BOLA)
-    for ball in balls:
-        if ball.get("pocketed", False):
-            continue
-        set_uniform(prog, "u_offset", tuple(ball["pos"]))
-        set_uniform(prog, "u_color", ball["color"])
-        pipeline["vao_circle"].render(
-            moderngl.TRIANGLE_FAN, vertices=pipeline["circle_count"]
-        )
+    _draw_table(prog, pipeline["vao_table"], felt_color)
+    _draw_table_lines(prog, pipeline["vao_lines"])
+    _draw_pockets(prog, pipeline["vao_circle"], pipeline["circle_count"])
+    _draw_balls(prog, pipeline["vao_circle"], pipeline["circle_count"], balls)
 
     if cue and cue.get("visible", False):
-        cue_verts, _ = create_cue_geometry(cue.get("power", 0.0))
-        pipeline["vbo_cue"].write(cue_verts.tobytes())
-
-        set_uniform(prog, "u_angle", cue.get("angle", 0.0))
-        set_uniform(prog, "u_offset", tuple(balls[0]["pos"]))
-        set_uniform(prog, "u_scale", 1.0)
-        set_uniform(prog, "u_color", (1.0, 1.0, 1.0, 1.0))
-
-        pipeline["vao_aim"].render(moderngl.LINES, vertices=pipeline["aim_count"])
-        pipeline["vao_cue"].render(moderngl.TRIANGLES)
-
-        set_uniform(prog, "u_angle", 0.0)
+        _draw_cue_and_aim(prog, pipeline, cue, balls[0]["pos"])
 
 
 if __name__ == "__main__":
@@ -328,10 +398,14 @@ if __name__ == "__main__":
 
     if test_ctx is not None:
         p = setup_graphics(test_ctx)
-        print("graphics.py: shaders compilados e pipeline de múltiplas primitivas inicializado.")
+        test_balls = [{"pos": [-0.45, 0.0], "color": (1.0, 1.0, 1.0, 1.0), "pocketed": False}]
+        test_cue = {"angle": 0.0, "power": 0.5, "visible": True}
+        render_scene(test_ctx, p, test_balls, proj_scale=(1.0, 1.0), cue=test_cue)
+
         for k, v in p.items():
             if hasattr(v, "release"):
                 v.release()
         test_ctx.release()
+        print("graphics.py: graphics pipeline and rendering simulated successfully.")
     else:
-        print("graphics.py: teste de contexto standalone indisponível.")
+        print("graphics.py: standalone context test unavailable.")

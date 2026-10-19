@@ -9,73 +9,91 @@ from typing import Any
 
 import glfw
 
-from graphics import POSICOES_CACAPAS, RAIO_CACAPA
+from graphics import POCKET_POSITIONS, POCKET_RADIUS
 from physics import (
+    _dot_2d,
     check_pocket_fall,
     resolve_cushion_bounce,
     resolve_elastic_collision,
 )
 
-RAIO_BOLA = 0.032
+BALL_RADIUS = 0.032
 
-CORES_BOLAS = (
-    (0.95, 0.85, 0.15, 1.0),
-    (0.15, 0.40, 0.85, 1.0),
-    (0.85, 0.15, 0.15, 1.0),
-    (0.55, 0.15, 0.75, 1.0),
-    (0.95, 0.50, 0.10, 1.0),
-    (0.15, 0.65, 0.25, 1.0),
-    (0.55, 0.20, 0.15, 1.0),
-    (0.10, 0.10, 0.10, 1.0),
-    (0.90, 0.75, 0.20, 1.0),
-    (0.25, 0.65, 0.90, 1.0),
-    (0.90, 0.30, 0.30, 1.0),
-    (0.70, 0.35, 0.85, 1.0),
-    (0.95, 0.65, 0.25, 1.0),
-    (0.35, 0.80, 0.45, 1.0),
-    (0.60, 0.10, 0.30, 1.0),
+COLOR_YELLOW = (0.95, 0.85, 0.15, 1.0)
+COLOR_BLUE = (0.15, 0.40, 0.85, 1.0)
+COLOR_RED = (0.85, 0.15, 0.15, 1.0)
+COLOR_PURPLE = (0.55, 0.15, 0.75, 1.0)
+COLOR_ORANGE = (0.95, 0.50, 0.10, 1.0)
+COLOR_GREEN = (0.15, 0.65, 0.25, 1.0)
+COLOR_BROWN = (0.55, 0.20, 0.15, 1.0)
+COLOR_BLACK = (0.10, 0.10, 0.10, 1.0)
+COLOR_STRIPED_YELLOW = (0.90, 0.75, 0.20, 1.0)
+COLOR_STRIPED_BLUE = (0.25, 0.65, 0.90, 1.0)
+COLOR_STRIPED_RED = (0.90, 0.30, 0.30, 1.0)
+COLOR_STRIPED_PURPLE = (0.70, 0.35, 0.85, 1.0)
+COLOR_STRIPED_ORANGE = (0.95, 0.65, 0.25, 1.0)
+COLOR_STRIPED_GREEN = (0.35, 0.80, 0.45, 1.0)
+COLOR_STRIPED_BROWN = (0.60, 0.10, 0.30, 1.0)
+
+BALL_COLORS = (
+    COLOR_YELLOW,
+    COLOR_BLUE,
+    COLOR_RED,
+    COLOR_PURPLE,
+    COLOR_ORANGE,
+    COLOR_GREEN,
+    COLOR_BROWN,
+    COLOR_BLACK,
+    COLOR_STRIPED_YELLOW,
+    COLOR_STRIPED_BLUE,
+    COLOR_STRIPED_RED,
+    COLOR_STRIPED_PURPLE,
+    COLOR_STRIPED_ORANGE,
+    COLOR_STRIPED_GREEN,
+    COLOR_STRIPED_BROWN,
 )
 
-COR_BOLA_BRANCA = (0.96, 0.96, 0.96, 1.0)
+CUE_BALL_COLOR = (0.96, 0.96, 0.96, 1.0)
 
 
 def init_cue() -> dict[str, Any]:
     """Inicializa o estado da mira e da força acumulada do taco de sinuca."""
-    return {
-        "angle": 0.0,
-        "power": 0.0,
-        "visible": True,
-    }
+    return {"angle": 0.0, "power": 0.0, "visible": True}
 
 
-def process_cue_controls(cue: dict[str, Any], window: Any, dt: float) -> None:
-    """Processa entradas contínuas de mira (Shift para precisão) e dosagem de força do taco."""
-    if not cue.get("visible", False):
-        return
-
+def _update_cue_angle(cue: dict[str, Any], window: Any, dt: float) -> None:
+    """Atualiza o ângulo da mira do taco com suporte a ajuste fino (Shift ou A/D)."""
     is_precision = (
         glfw.get_key(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS
         or glfw.get_key(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
     )
+    speed = 0.35 if is_precision else 1.75
 
-    rotation_speed = 0.35 if is_precision else 1.75
+    if glfw.get_key(window, glfw.KEY_LEFT) == glfw.PRESS:
+        cue["angle"] += speed * dt
+    elif glfw.get_key(window, glfw.KEY_A) == glfw.PRESS:
+        cue["angle"] += 0.35 * dt
+
+    if glfw.get_key(window, glfw.KEY_RIGHT) == glfw.PRESS:
+        cue["angle"] -= speed * dt
+    elif glfw.get_key(window, glfw.KEY_D) == glfw.PRESS:
+        cue["angle"] -= 0.35 * dt
+
+
+def _update_cue_power(cue: dict[str, Any], window: Any, dt: float) -> None:
+    """Ajusta a força acumulada do taco com as setas para cima/baixo."""
     power_speed = 0.65
-
-    if (
-        glfw.get_key(window, glfw.KEY_LEFT) == glfw.PRESS
-        or glfw.get_key(window, glfw.KEY_A) == glfw.PRESS
-    ):
-        cue["angle"] += (0.35 if glfw.get_key(window, glfw.KEY_A) == glfw.PRESS else rotation_speed) * dt
-    if (
-        glfw.get_key(window, glfw.KEY_RIGHT) == glfw.PRESS
-        or glfw.get_key(window, glfw.KEY_D) == glfw.PRESS
-    ):
-        cue["angle"] -= (0.35 if glfw.get_key(window, glfw.KEY_D) == glfw.PRESS else rotation_speed) * dt
-
     if glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS:
         cue["power"] = min(1.0, cue["power"] + power_speed * dt)
     if glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS:
         cue["power"] = max(0.0, cue["power"] - power_speed * dt)
+
+
+def process_cue_controls(cue: dict[str, Any], window: Any, dt: float) -> None:
+    """Processa entradas contínuas de mira e dosagem de força do taco."""
+    if cue.get("visible", False):
+        _update_cue_angle(cue, window, dt)
+        _update_cue_power(cue, window, dt)
 
 
 def shoot_cue_ball(cue: dict[str, Any], balls: list[dict[str, Any]]) -> bool:
@@ -87,71 +105,86 @@ def shoot_cue_ball(cue: dict[str, Any], balls: list[dict[str, Any]]) -> bool:
     force = 0.25 + power * 2.25
     angle = cue.get("angle", 0.0)
 
-    balls[0]["vel"][0] = force * cos(angle)
-    balls[0]["vel"][1] = force * sin(angle)
+    balls[0]["vel"] = [force * cos(angle), force * sin(angle)]
 
     cue["power"] = 0.0
     cue["visible"] = False
     return True
 
 
-def init_gameplay() -> list[dict[str, Any]]:
-    """Inicializa as 16 bolas na mesa (bola branca na saída e triângulo no foot spot)."""
+def _create_cue_ball() -> dict[str, Any]:
+    """Cria a estrutura de estado da bola branca na marca de saída."""
+    return {
+        "id": 0,
+        "pos": [-0.45, 0.0],
+        "vel": [0.0, 0.0],
+        "color": CUE_BALL_COLOR,
+        "pocketed": False,
+    }
+
+
+def _create_triangle_balls() -> list[dict[str, Any]]:
+    """Gera o triângulo padrão de 15 bolas no foot spot com a bola 8 no centro."""
     balls: list[dict[str, Any]] = []
-
-    balls.append(
-        {
-            "id": 0,
-            "pos": [-0.45, 0.0],
-            "vel": [0.0, 0.0],
-            "color": COR_BOLA_BRANCA,
-            "pocketed": False,
-        }
-    )
-
     x0 = 0.30
-    diametro = RAIO_BOLA * 2.0
-    dx = diametro * 0.866
-    dy = diametro * 1.02
+    diameter = BALL_RADIUS * 2.0
+    dx = diameter * 0.866
+    dy = diameter * 1.02
 
-    idx_cor = 0
+    color_index = 0
     for col in range(5):
         col_x = x0 + col * dx
         start_y = -(col * dy) / 2.0
         for row in range(col + 1):
             col_y = start_y + row * dy
             if col == 2 and row == 1:
-                cor = CORES_BOLAS[7]
-            elif idx_cor == 7:
-                cor = CORES_BOLAS[0]
-                idx_cor += 1
+                color = COLOR_BLACK
+            elif color_index == 7:
+                color = COLOR_YELLOW
+                color_index += 1
             else:
-                cor = CORES_BOLAS[idx_cor % len(CORES_BOLAS)]
-                idx_cor += 1
+                color = BALL_COLORS[color_index % len(BALL_COLORS)]
+                color_index += 1
 
             balls.append(
                 {
-                    "id": len(balls),
+                    "id": len(balls) + 1,
                     "pos": [col_x, col_y],
                     "vel": [0.0, 0.0],
-                    "color": cor,
+                    "color": color,
                     "pocketed": False,
                 }
             )
-
     return balls
 
 
-def update_gameplay(
-    balls: list[dict[str, Any]],
-    cue: dict[str, Any] | None,
-    dt: float,
-    pockets: tuple[tuple[float, float], ...] = POSICOES_CACAPAS,
-    pocket_radius: float = RAIO_CACAPA,
-) -> list[dict[str, Any]]:
-    """Atualiza física das bolas: movimentação, caçapas, tabelas, colisões mútuas e atrito."""
-    friction = 0.985 ** (dt * 60.0)
+def init_gameplay() -> list[dict[str, Any]]:
+    """Inicializa as 16 bolas na mesa (bola branca na saída e triângulo no foot spot)."""
+    return [_create_cue_ball(), *_create_triangle_balls()]
 
+
+def _handle_pocket_event(ball: dict[str, Any]) -> bool:
+    """Aplica penalidade de falta na bola branca ou encaçapa bola numerada. Retorna True se removida."""
+    if ball["id"] == 0:
+        print("[Sinucadas] ⚠️ Foul! Cue ball pocketed — repositioned at head spot.")
+        ball["pos"] = [-0.45, 0.0]
+        ball["vel"] = [0.0, 0.0]
+        return False
+
+    print(f"[Sinucadas] 🎯 Ball {ball['id']} pocketed successfully!")
+    ball["pocketed"] = True
+    ball["vel"] = [0.0, 0.0]
+    ball["pos"] = [-2.0, -2.0]
+    return True
+
+
+def _update_ball_kinematics(
+    balls: list[dict[str, Any]],
+    pockets: tuple[tuple[float, float], ...],
+    pocket_radius: float,
+    dt: float,
+) -> None:
+    """Avança posições das bolas, verifica encaçapamento e aplica reflexão nas tabelas."""
     for ball in balls:
         if ball.get("pocketed", False):
             continue
@@ -159,27 +192,20 @@ def update_gameplay(
         ball["pos"][0] += ball["vel"][0] * dt
         ball["pos"][1] += ball["vel"][1] * dt
 
-        if check_pocket_fall(ball["pos"], pockets, pocket_radius):
-            if ball["id"] == 0:
-                print(
-                    "[Sinucadas] ⚠️ Falta! Bola branca encaçapada — reposicionada na marca de saída."
-                )
-                ball["pos"] = [-0.45, 0.0]
-                ball["vel"] = [0.0, 0.0]
-            else:
-                print(f"[Sinucadas] 🎯 Bola {ball['id']} encaçapada com sucesso!")
-                ball["pocketed"] = True
-                ball["vel"] = [0.0, 0.0]
-                ball["pos"] = [-2.0, -2.0]
-                continue
+        if check_pocket_fall(ball["pos"], pockets, pocket_radius) and _handle_pocket_event(
+            ball
+        ):
+            continue
 
         resolve_cushion_bounce(
-            ball["pos"], ball["vel"], RAIO_BOLA, 0.90, 0.45, restitution=0.85
+            ball["pos"], ball["vel"], BALL_RADIUS, (0.90, 0.45), restitution=0.85
         )
 
-    active_balls = [b for b in balls if not b.get("pocketed", False)]
+
+def _resolve_all_ball_collisions(active_balls: list[dict[str, Any]], passes: int = 3) -> None:
+    """Resolve sobreposições e trocas de momento elástico entre pares de bolas ativas."""
     num_active = len(active_balls)
-    for _ in range(3):
+    for _ in range(passes):
         for i in range(num_active):
             for j in range(i + 1, num_active):
                 resolve_elastic_collision(
@@ -187,24 +213,46 @@ def update_gameplay(
                     active_balls[i]["vel"],
                     active_balls[j]["pos"],
                     active_balls[j]["vel"],
-                    RAIO_BOLA,
+                    BALL_RADIUS,
                     restitution=0.96,
                 )
 
+
+def _apply_friction_and_drag(active_balls: list[dict[str, Any]], friction: float) -> None:
+    """Aplica o atrito de rolagem do feltro e repousa bolas com velocidade residual."""
     for ball in active_balls:
         ball["vel"][0] *= friction
         ball["vel"][1] *= friction
 
-        if (ball["vel"][0] ** 2 + ball["vel"][1] ** 2) < 0.0001:
-            ball["vel"][0] = 0.0
-            ball["vel"][1] = 0.0
+        if _dot_2d(ball["vel"], ball["vel"]) < 0.0001:
+            ball["vel"] = [0.0, 0.0]
 
+
+def _check_cue_readiness(
+    active_balls: list[dict[str, Any]], cue: dict[str, Any] | None
+) -> None:
+    """Restaura a visibilidade do taco quando todas as bolas atingem repouso completo."""
     if cue and not cue.get("visible", False):
-        all_stopped = all(
-            b["vel"][0] == 0.0 and b["vel"][1] == 0.0 for b in active_balls
-        )
+        all_stopped = all(_dot_2d(b["vel"], b["vel"]) == 0.0 for b in active_balls)
         if all_stopped:
             cue["visible"] = True
+
+
+def update_gameplay(
+    balls: list[dict[str, Any]],
+    cue: dict[str, Any] | None,
+    dt: float,
+    pockets: tuple[tuple[float, float], ...] = POCKET_POSITIONS,
+    pocket_radius: float = POCKET_RADIUS,
+) -> list[dict[str, Any]]:
+    """Atualiza física das bolas: movimentação, caçapas, tabelas, colisões mútuas e atrito."""
+    friction = 0.985 ** (dt * 60.0)
+
+    _update_ball_kinematics(balls, pockets, pocket_radius, dt)
+    active_balls = [b for b in balls if not b.get("pocketed", False)]
+    _resolve_all_ball_collisions(active_balls)
+    _apply_friction_and_drag(active_balls, friction)
+    _check_cue_readiness(active_balls, cue)
 
     return balls
 
@@ -212,6 +260,15 @@ def update_gameplay(
 if __name__ == "__main__":
     b = init_gameplay()
     c = init_cue()
-    assert len(b) == 16, f"Esperado 16 bolas, obtido {len(b)}"
-    assert c["visible"] is True, "Taco deve iniciar visível"
-    print(f"gameplay.py: {len(b)} bolas e taco inicializados com sucesso na mesa.")
+    assert len(b) == 16, f"Expected 16 balls, got {len(b)}"
+    assert c["visible"] is True, "Cue must start visible"
+
+    shot = shoot_cue_ball(c, b)
+    assert shot is True
+    assert c["visible"] is False
+    assert b[0]["vel"][0] > 0.0
+
+    b = update_gameplay(b, c, 0.016)
+    assert b[0]["pos"][0] != -0.45
+
+    print(f"gameplay.py: {len(b)} balls and cue initialized and simulated successfully.")
