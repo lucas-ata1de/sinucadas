@@ -234,60 +234,62 @@ def release_resource(*resources: Any) -> None:
                 res.release()
 
 
+def main() -> None:
+    """Executa a suíte de testes unitários de temporização, viewport e janelas do Sinucadas."""
+    # 1. Test delta time and dt_max clamp
+    t_base = glfw.get_time() if glfw.init() else 100.0
+    now, dt = update_time(t_base)
+    assert dt >= 0.0, "Delta time must be non-negative"
+    _, dt_clamped = update_time(now - 1.0, dt_max=0.05)
+    assert dt_clamped == 0.05, f"dt_max must clamp value to 0.05, got {dt_clamped}"
+
+    # 2. Test viewport adjustment with valid and degenerate dimensions
+    class _MockContext:
+        viewport = (0, 0, 0, 0)
+
+    mock_ctx = _MockContext()
+    assert adjust_viewport(mock_ctx, (800, 600)) is True  # type: ignore[arg-type]
+    assert mock_ctx.viewport == (0, 0, 800, 600)
+    assert adjust_viewport(mock_ctx, (0, 0)) is False  # type: ignore[arg-type]
+    assert adjust_viewport(mock_ctx, (-100, 400)) is False  # type: ignore[arg-type]
+
+    # 3. Test composite resource release
+    released_count = 0
+
+    class _MockResource:
+        def release(self) -> None:
+            nonlocal released_count
+            released_count += 1
+
+    r1, r2, r3, r4 = _MockResource(), _MockResource(), _MockResource(), _MockResource()
+    release_resource(None, r1, [r2, (r3, {"nested": r4})])
+    assert released_count == 4, f"Expected 4 resources released, got {released_count}"
+
+    # 4. Test hot-reload observer subsystem
+    reload_triggered = False
+
+    def _sample_callback() -> None:
+        nonlocal reload_triggered
+        reload_triggered = True
+
+    register_hot_reload(_sample_callback)
+    assert _sample_callback in _HOT_RELOAD_LISTENERS
+    _trigger_hot_reload()
+    assert reload_triggered is True, "Hot-reload callback was not executed"
+    unregister_hot_reload(_sample_callback)
+    assert _sample_callback not in _HOT_RELOAD_LISTENERS
+
+    # 5. Test window creation and ModernGL context (invisible/headless-safe)
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        print("window.py: unit tests (timing, viewport, release, hot-reload) passed (GUI skipped in headless).")
+    else:
+        glfw.window_hint(glfw.VISIBLE, False)
+        win, context = window_setup((400, 300), "Window Test")
+        renderer = context.info["GL_RENDERER"]
+        print(f"window.py: unit tests and ModernGL context verified successfully ({renderer}).")
+        release_resource(context)
+        glfw.terminate()
+
+
 if __name__ == "__main__":
-    def _test_window_module() -> None:
-        # 1. Test delta time and dt_max clamp
-        t_base = glfw.get_time() if glfw.init() else 100.0
-        now, dt = update_time(t_base)
-        assert dt >= 0.0, "Delta time must be non-negative"
-        _, dt_clamped = update_time(now - 1.0, dt_max=0.05)
-        assert dt_clamped == 0.05, f"dt_max must clamp value to 0.05, got {dt_clamped}"
-
-        # 2. Test viewport adjustment with valid and degenerate dimensions
-        class _MockContext:
-            viewport = (0, 0, 0, 0)
-
-        mock_ctx = _MockContext()
-        assert adjust_viewport(mock_ctx, (800, 600)) is True  # type: ignore[arg-type]
-        assert mock_ctx.viewport == (0, 0, 800, 600)
-        assert adjust_viewport(mock_ctx, (0, 0)) is False  # type: ignore[arg-type]
-        assert adjust_viewport(mock_ctx, (-100, 400)) is False  # type: ignore[arg-type]
-
-        # 3. Test composite resource release
-        released_count = 0
-
-        class _MockResource:
-            def release(self) -> None:
-                nonlocal released_count
-                released_count += 1
-
-        r1, r2, r3, r4 = _MockResource(), _MockResource(), _MockResource(), _MockResource()
-        release_resource(None, r1, [r2, (r3, {"nested": r4})])
-        assert released_count == 4, f"Expected 4 resources released, got {released_count}"
-
-        # 4. Test hot-reload observer subsystem
-        reload_triggered = False
-
-        def _sample_callback() -> None:
-            nonlocal reload_triggered
-            reload_triggered = True
-
-        register_hot_reload(_sample_callback)
-        assert _sample_callback in _HOT_RELOAD_LISTENERS
-        _trigger_hot_reload()
-        assert reload_triggered is True, "Hot-reload callback was not executed"
-        unregister_hot_reload(_sample_callback)
-        assert _sample_callback not in _HOT_RELOAD_LISTENERS
-
-        # 5. Test window creation and ModernGL context (invisible/headless-safe)
-        if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-            print("window.py: unit tests (timing, viewport, release, hot-reload) passed (GUI skipped in headless).")
-        else:
-            glfw.window_hint(glfw.VISIBLE, False)
-            win, context = window_setup((400, 300), "Window Test")
-            renderer = context.info["GL_RENDERER"]
-            print(f"window.py: unit tests and ModernGL context verified successfully ({renderer}).")
-            release_resource(context)
-            glfw.terminate()
-
-    _test_window_module()
+    main()

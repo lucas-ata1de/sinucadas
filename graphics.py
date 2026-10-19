@@ -386,72 +386,74 @@ def render_scene(
         _draw_cue_and_aim(prog, pipeline, cue, balls[0]["pos"])
 
 
-if __name__ == "__main__":
-    def _test_graphics_module() -> None:
-        import math
-        import os
-        from unittest.mock import MagicMock
+def main() -> None:
+    """Executa a suíte de testes unitários do pipeline gráfico do Sinucadas."""
+    import math
+    import os
+    from unittest.mock import MagicMock
 
-        # 1. Test shader code resolution
-        assert _resolve_shader_code(None) is None
-        dummy_shader = "#version 330 core\nvoid main() { gl_Position = vec4(0.0); }"
-        assert _resolve_shader_code(dummy_shader) == dummy_shader
+    # 1. Test shader code resolution
+    assert _resolve_shader_code(None) is None
+    dummy_shader = "#version 330 core\nvoid main() { gl_Position = vec4(0.0); }"
+    assert _resolve_shader_code(dummy_shader) == dummy_shader
 
-        # 2. Test get_projection_scale with mocked window
-        dummy_win = MagicMock()
-        orig_fb = glfw.get_framebuffer_size
+    # 2. Test get_projection_scale with mocked window
+    dummy_win = MagicMock()
+    orig_fb = glfw.get_framebuffer_size
+    try:
+        glfw.get_framebuffer_size = MagicMock(return_value=(800, 600))
+        sx, sy = get_projection_scale(dummy_win)
+        assert math.isclose(sx, 0.98)
+        assert math.isclose(sy, 0.98 * (800 / 600))
+
+        glfw.get_framebuffer_size = MagicMock(return_value=(0, 0))
+        assert get_projection_scale(dummy_win) == (1.0, 1.0)
+    finally:
+        glfw.get_framebuffer_size = orig_fb
+
+    # 3. Test ModernGL context, pipeline setup, and rendering
+    test_ctx: moderngl.Context | None = None
+    headless_win = None
+    try:
+        test_ctx = moderngl.create_context(standalone=True)
+    except Exception:
         try:
-            glfw.get_framebuffer_size = MagicMock(return_value=(800, 600))
-            sx, sy = get_projection_scale(dummy_win)
-            assert math.isclose(sx, 0.98)
-            assert math.isclose(sy, 0.98 * (800 / 600))
-
-            glfw.get_framebuffer_size = MagicMock(return_value=(0, 0))
-            assert get_projection_scale(dummy_win) == (1.0, 1.0)
-        finally:
-            glfw.get_framebuffer_size = orig_fb
-
-        # 3. Test ModernGL context, pipeline setup, and rendering
-        test_ctx: moderngl.Context | None = None
-        headless_win = None
-        try:
-            test_ctx = moderngl.create_context(standalone=True)
+            test_ctx = moderngl.create_context(standalone=True, backend="egl")  # type: ignore[arg-type]
         except Exception:
-            try:
-                test_ctx = moderngl.create_context(standalone=True, backend="egl")  # type: ignore[arg-type]
-            except Exception:
-                pass
+            pass
 
-        if test_ctx is None and (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-            if glfw.init():
-                glfw.window_hint(glfw.VISIBLE, False)
-                headless_win = glfw.create_window(100, 100, "HeadlessTest", None, None)
-                if headless_win:
-                    glfw.make_context_current(headless_win)
-                    try:
-                        test_ctx = moderngl.create_context()
-                    except Exception:
-                        pass
-
-        if test_ctx is not None:
-            pipeline = setup_graphics(test_ctx)
-            assert "prog" in pipeline
-            assert "vao_circle" in pipeline
-            assert "vao_table" in pipeline
-
-            test_balls = [{"pos": [-0.45, 0.0], "color": (1.0, 1.0, 1.0, 1.0), "pocketed": False}]
-            test_cue = {"angle": 0.0, "power": 0.5, "visible": True}
-            render_scene(test_ctx, pipeline, test_balls, proj_scale=(1.0, 1.0), cue=test_cue)
-
-            for v in pipeline.values():
-                if hasattr(v, "release"):
-                    v.release()
-            test_ctx.release()
+    if test_ctx is None and (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        if glfw.init():
+            glfw.window_hint(glfw.VISIBLE, False)
+            headless_win = glfw.create_window(100, 100, "HeadlessTest", None, None)
             if headless_win:
-                glfw.destroy_window(headless_win)
-                glfw.terminate()
-            print("graphics.py: shader resolution, math, and ModernGL rendering pipeline validated successfully.")
-        else:
-            print("graphics.py: shader resolution and math validated; ModernGL context test skipped (headless environment).")
+                glfw.make_context_current(headless_win)
+                try:
+                    test_ctx = moderngl.create_context()
+                except Exception:
+                    pass
 
-    _test_graphics_module()
+    if test_ctx is not None:
+        pipeline = setup_graphics(test_ctx)
+        assert "prog" in pipeline
+        assert "vao_circle" in pipeline
+        assert "vao_table" in pipeline
+
+        test_balls = [{"pos": [-0.45, 0.0], "color": (1.0, 1.0, 1.0, 1.0), "pocketed": False}]
+        test_cue = {"angle": 0.0, "power": 0.5, "visible": True}
+        render_scene(test_ctx, pipeline, test_balls, proj_scale=(1.0, 1.0), cue=test_cue)
+
+        for v in pipeline.values():
+            if hasattr(v, "release"):
+                v.release()
+        test_ctx.release()
+        if headless_win:
+            glfw.destroy_window(headless_win)
+            glfw.terminate()
+        print("graphics.py: shader resolution, math, and ModernGL rendering pipeline validated successfully.")
+    else:
+        print("graphics.py: shader resolution and math validated; ModernGL context test skipped (headless environment).")
+
+
+if __name__ == "__main__":
+    main()

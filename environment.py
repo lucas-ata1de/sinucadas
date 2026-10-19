@@ -142,7 +142,8 @@ def configure_window_hint(app_id: str = "moderngl") -> None:
         glfw.window_hint_string(glfw.X11_CLASS_NAME, app_id)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Valida as configurações de ambiente, cursor e ícones do Sinucadas."""
     assert DEFAULT_ICON.exists(), f"Default icon not found: {DEFAULT_ICON}"
     configure_cursor()
     assert "XCURSOR_THEME" in os.environ and os.environ["XCURSOR_THEME"], "XCURSOR_THEME not set"
@@ -158,3 +159,7 @@ if __name__ == "__main__":
         f"XCURSOR_SIZE={os.environ.get('XCURSOR_SIZE')}, "
         f"icon='{DEFAULT_ICON.name}')."
     )
+
+
+if __name__ == "__main__":
+    main()

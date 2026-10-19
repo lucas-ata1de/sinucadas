@@ -267,92 +267,94 @@ def update_gameplay(
     return balls
 
 
+def main() -> None:
+    """Executa a suíte de testes unitários da mecânica de jogo e cinemática do Sinucadas."""
+    import math
+    from unittest.mock import MagicMock
+
+    # 1. Initialize gameplay and verify balls hierarchy
+    balls = init_gameplay()
+    cue = init_cue()
+    assert len(balls) == 16, f"Expected 16 balls, got {len(balls)}"
+    assert balls[0]["id"] == 0, "Ball 0 must be cue ball"
+    assert balls[0]["pos"] == [-0.45, 0.0]
+    assert balls[0]["pocketed"] is False
+    assert cue["visible"] is True, "Cue must start visible"
+    assert cue["power"] == 0.0 and cue["angle"] == 0.0
+
+    # Check 8-ball (black ball at center of triangle)
+    black_balls = [b for b in balls[1:] if b["color"] == COLOR_BLACK]
+    assert len(black_balls) == 1, "Must contain exactly one black 8-ball"
+
+    # 2. Cue shooting dynamics
+    cue["power"] = 0.5
+    cue["angle"] = 0.0
+    shot_success = shoot_cue_ball(cue, balls)
+    assert shot_success is True
+    assert cue["visible"] is False
+    assert cue["power"] == 0.0
+    assert balls[0]["vel"][0] > 0.0
+    assert math.isclose(balls[0]["vel"][1], 0.0)
+
+    # Cannot shoot again while cue is invisible
+    assert shoot_cue_ball(cue, balls) is False
+
+    # 3. Pocket event: foul on cue ball vs numbered ball pocketed
+    foul_handled = _handle_pocket_event(balls[0])
+    assert foul_handled is False, "Foul should not remove cue ball"
+    assert balls[0]["pos"] == [-0.45, 0.0]
+    assert balls[0]["vel"] == [0.0, 0.0]
+    assert balls[0]["pocketed"] is False
+
+    numbered_ball = balls[1]
+    pocketed_handled = _handle_pocket_event(numbered_ball)
+    assert pocketed_handled is True, "Numbered ball should be pocketed"
+    assert numbered_ball["pocketed"] is True
+    assert numbered_ball["pos"] == [-2.0, -2.0]
+
+    # 4. Cue readiness checking
+    cue_test = {"visible": False}
+    balls[2]["vel"] = [0.1, 0.0]
+    _check_cue_readiness(balls, cue_test)
+    assert cue_test["visible"] is False, "Cue must remain hidden while balls are in motion"
+
+    balls[2]["vel"] = [0.0, 0.0]
+    _check_cue_readiness(balls, cue_test)
+    assert cue_test["visible"] is True, "Cue must appear once all balls stop"
+
+    # 5. Cue controls with mocked GLFW window
+    mock_win = MagicMock()
+    mock_win_key = {
+        glfw.KEY_LEFT_SHIFT: glfw.RELEASE,
+        glfw.KEY_RIGHT_SHIFT: glfw.RELEASE,
+        glfw.KEY_LEFT: glfw.PRESS,
+        glfw.KEY_A: glfw.RELEASE,
+        glfw.KEY_RIGHT: glfw.RELEASE,
+        glfw.KEY_D: glfw.RELEASE,
+        glfw.KEY_UP: glfw.PRESS,
+        glfw.KEY_W: glfw.RELEASE,
+        glfw.KEY_DOWN: glfw.RELEASE,
+        glfw.KEY_S: glfw.RELEASE,
+    }
+    orig_get_key = glfw.get_key
+    try:
+        glfw.get_key = MagicMock(side_effect=lambda w, k: mock_win_key.get(k, glfw.RELEASE))
+        test_cue_ctrl = {"angle": 0.0, "power": 0.0, "visible": True}
+        process_cue_controls(test_cue_ctrl, mock_win, dt=0.1)
+        assert test_cue_ctrl["angle"] > 0.0
+        assert test_cue_ctrl["power"] > 0.0
+    finally:
+        glfw.get_key = orig_get_key
+
+    # 6. Gameplay integration step
+    balls = init_gameplay()
+    cue = init_cue()
+    balls[0]["vel"] = [1.0, 0.0]
+    balls = update_gameplay(balls, cue, dt=0.016)
+    assert balls[0]["pos"][0] != -0.45
+
+    print(f"gameplay.py: {len(balls)} balls, rack formation, fouls, and kinematics verified successfully.")
+
+
 if __name__ == "__main__":
-    def _test_gameplay_module() -> None:
-        import math
-        from unittest.mock import MagicMock
-
-        # 1. Initialize gameplay and verify balls hierarchy
-        balls = init_gameplay()
-        cue = init_cue()
-        assert len(balls) == 16, f"Expected 16 balls, got {len(balls)}"
-        assert balls[0]["id"] == 0, "Ball 0 must be cue ball"
-        assert balls[0]["pos"] == [-0.45, 0.0]
-        assert balls[0]["pocketed"] is False
-        assert cue["visible"] is True, "Cue must start visible"
-        assert cue["power"] == 0.0 and cue["angle"] == 0.0
-
-        # Check 8-ball (black ball at center of triangle)
-        black_balls = [b for b in balls[1:] if b["color"] == COLOR_BLACK]
-        assert len(black_balls) == 1, "Must contain exactly one black 8-ball"
-
-        # 2. Cue shooting dynamics
-        cue["power"] = 0.5
-        cue["angle"] = 0.0
-        shot_success = shoot_cue_ball(cue, balls)
-        assert shot_success is True
-        assert cue["visible"] is False
-        assert cue["power"] == 0.0
-        assert balls[0]["vel"][0] > 0.0
-        assert math.isclose(balls[0]["vel"][1], 0.0)
-
-        # Cannot shoot again while cue is invisible
-        assert shoot_cue_ball(cue, balls) is False
-
-        # 3. Pocket event: foul on cue ball vs numbered ball pocketed
-        foul_handled = _handle_pocket_event(balls[0])
-        assert foul_handled is False, "Foul should not remove cue ball"
-        assert balls[0]["pos"] == [-0.45, 0.0]
-        assert balls[0]["vel"] == [0.0, 0.0]
-        assert balls[0]["pocketed"] is False
-
-        numbered_ball = balls[1]
-        pocketed_handled = _handle_pocket_event(numbered_ball)
-        assert pocketed_handled is True, "Numbered ball should be pocketed"
-        assert numbered_ball["pocketed"] is True
-        assert numbered_ball["pos"] == [-2.0, -2.0]
-
-        # 4. Cue readiness checking
-        cue_test = {"visible": False}
-        balls[2]["vel"] = [0.1, 0.0]
-        _check_cue_readiness(balls, cue_test)
-        assert cue_test["visible"] is False, "Cue must remain hidden while balls are in motion"
-
-        balls[2]["vel"] = [0.0, 0.0]
-        _check_cue_readiness(balls, cue_test)
-        assert cue_test["visible"] is True, "Cue must appear once all balls stop"
-
-        # 5. Cue controls with mocked GLFW window
-        mock_win = MagicMock()
-        mock_win_key = {
-            glfw.KEY_LEFT_SHIFT: glfw.RELEASE,
-            glfw.KEY_RIGHT_SHIFT: glfw.RELEASE,
-            glfw.KEY_LEFT: glfw.PRESS,
-            glfw.KEY_A: glfw.RELEASE,
-            glfw.KEY_RIGHT: glfw.RELEASE,
-            glfw.KEY_D: glfw.RELEASE,
-            glfw.KEY_UP: glfw.PRESS,
-            glfw.KEY_W: glfw.RELEASE,
-            glfw.KEY_DOWN: glfw.RELEASE,
-            glfw.KEY_S: glfw.RELEASE,
-        }
-        orig_get_key = glfw.get_key
-        try:
-            glfw.get_key = MagicMock(side_effect=lambda w, k: mock_win_key.get(k, glfw.RELEASE))
-            test_cue_ctrl = {"angle": 0.0, "power": 0.0, "visible": True}
-            process_cue_controls(test_cue_ctrl, mock_win, dt=0.1)
-            assert test_cue_ctrl["angle"] > 0.0
-            assert test_cue_ctrl["power"] > 0.0
-        finally:
-            glfw.get_key = orig_get_key
-
-        # 6. Gameplay integration step
-        balls = init_gameplay()
-        cue = init_cue()
-        balls[0]["vel"] = [1.0, 0.0]
-        balls = update_gameplay(balls, cue, dt=0.016)
-        assert balls[0]["pos"][0] != -0.45
-
-        print(f"gameplay.py: {len(balls)} balls, rack formation, fouls, and kinematics verified successfully.")
-
-    _test_gameplay_module()
+    main()
