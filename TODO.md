@@ -20,9 +20,8 @@ Cena bidimensional de mesa de sinuca interativa implementada em ModernGL e GLFW 
 * **Hot-Reload (`F4`)**: Recompilação de shaders em tempo real sem reiniciar a aplicação.
 
 ### 3. Interação Mecânica do Taco
-* **Rotação (`←`/`→` ou `A`/`D`)**: Giro contínuo ao redor da bola branca.
-* **Modo de Precisão (`Shift`)**: Rotação 5x mais suave para alinhamento fino.
-* **Distância do Taco (`↑`/`↓` ou `W`/`S`)**: Avanço e recuo mecânico proporcional.
+* **Rotação (`←`/`→` ou `A`/`D`)**: Giro contínuo ao redor da bola branca (com `Shift` para precisão 5x mais suave).
+* **Distância do Taco (`↑`/`↓` ou `W`/`S`)**: Avanço e recuo mecânico proporcional (com `Shift` para precisão fina).
 
 ---
 

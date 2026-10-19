@@ -34,9 +34,10 @@ def _print_controls() -> None:
     """Exibe no terminal o sumário de controles da cena interativa."""
     print("\n[Sinucadas] 🎱 Interactive 2D Billiard Scene initialized!")
     print("Controls:")
-    print("  • ← / → (or A / D): Rotate cue stick and aim line around the cue ball.")
-    print("  • Shift + ← / →: Precision rotation (5x smoother adjustment).")
-    print("  • ↑ / ↓ (or W / S): Pull back / advance cue stick distance.")
+    print("  • ← / →: Rotate cue stick and aim line around the cue ball.")
+    print("  • Shift + ← / → (or A / D): Precision rotation (5x smoother adjustment).")
+    print("  • ↑ / ↓: Pull back / advance cue stick distance.")
+    print("  • Shift + ↑ / ↓ (or W / S): Precision distance adjustment (smoother).")
     print("  • C: Change table felt color dynamically in real time.")
     print("  • N: Toggle Day / Night mode (background clear + lighting attenuation).")
     print("  • F4: Reload shaders in real time (Debug mode).")
@@ -55,6 +56,7 @@ def _process_cue_controls(cue: dict[str, Any], window: Any, dt: float) -> None:
         or glfw.get_key(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
     )
     rotation_speed = 0.35 if is_precision else 1.75
+    power_speed = 0.15 if is_precision else 0.65
 
     if glfw.get_key(window, glfw.KEY_LEFT) == glfw.PRESS:
         cue["angle"] += rotation_speed * dt
@@ -66,17 +68,15 @@ def _process_cue_controls(cue: dict[str, Any], window: Any, dt: float) -> None:
     elif glfw.get_key(window, glfw.KEY_D) == glfw.PRESS:
         cue["angle"] -= 0.35 * dt
 
-    power_speed = 0.65
-    if (
-        glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS
-        or glfw.get_key(window, glfw.KEY_W) == glfw.PRESS
-    ):
+    if glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS:
         cue["power"] = min(1.0, cue["power"] + power_speed * dt)
-    if (
-        glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS
-        or glfw.get_key(window, glfw.KEY_S) == glfw.PRESS
-    ):
+    elif glfw.get_key(window, glfw.KEY_W) == glfw.PRESS:
+        cue["power"] = min(1.0, cue["power"] + 0.15 * dt)
+
+    if glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS:
         cue["power"] = max(0.0, cue["power"] - power_speed * dt)
+    elif glfw.get_key(window, glfw.KEY_S) == glfw.PRESS:
+        cue["power"] = max(0.0, cue["power"] - 0.15 * dt)
 
 
 def _setup_hot_reload(ctx: moderngl.Context, pipeline: dict[str, Any]) -> None:

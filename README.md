@@ -24,8 +24,10 @@ Cena 2D interativa de sinuca desenvolvida em Python para a **Atividade 02 de Com
 | :--- | :--- | :--- |
 | `←` / `→` | **Girar Taco (Ágil)** | Rotaciona o taco de sinuca e a linha guia tracejada ao redor da bola branca (1.75 rad/s). |
 | `Shift + ← / →` | **Giro de Precisão** | Modo de ajuste fino (0.35 rad/s, 5x mais suave) para alinhamento milimétrico da mira. |
-| `A` / `D` | **Ajuste Fino Alternativo** | Micro-ajustes angulares utilizando a mão esquerda. |
-| `↑` / `↓` (ou `W` / `S`) | **Distância / Recuo do Taco** | Puxa o taco para trás ou aproxima-o da bola branca (ajuste contínuo da distância mecânica). |
+| `A` / `D` | **Giro Alternativo** | Micro-ajustes angulares utilizando a mão esquerda. |
+| `↑` / `↓` | **Distância do Taco (Ágil)** | Puxa o taco para trás ou aproxima-o da bola branca (ajuste mecânico normal). |
+| `Shift + ↑ / ↓` | **Distância com Precisão** | Ajuste fino e suave do recuo/aproximação mecânica do taco. |
+| `W` / `S` | **Distância (Teclas Alternativas)** | Micro-ajustes de distância utilizando a mão esquerda. |
 | `C` | **Cor do Feltro** | Alterna ciclicamente a cor da mesa em tempo real (Verde, Azul, Vermelho e Preto). |
 | `N` | **Dia / Noite** | Alterna entre o modo Dia (salão claro) e Noite (mesa com iluminação focada e fundo escuro). |
 | `F4` | **Hot-Reload** | Recarrega shaders GLSL em tempo real sem fechar a janela (modo Debug). |
