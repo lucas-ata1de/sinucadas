@@ -21,14 +21,14 @@ all: run
 help:
 	cmd() { printf "    \033[36mmake %-18s\033[0m %s\n" "$$1" "$$2"; }; \
 	sec() { printf "\n  \033[1;33m%s\033[0m\n" "$$1"; }; \
-	printf "\n  \033[1;37mSinucadas (Atividade 02) — 2D Game in ModernGL\033[0m\n"; \
+	printf "\n  \033[1;37mSinucadas (Atividade 02) — Interactive 2D Scene in ModernGL\033[0m\n"; \
 	printf "  ============================================================\n"; \
 	sec "Execution & Modes:"; \
-	cmd "run"            "Runs the game in standard Debug mode (Hot-Reload active via F4)"; \
-	cmd "debug"          "Runs the game explicitly in Debug mode (Hot-Reload active)"; \
-	cmd "release"        "Runs the game in Release mode (--release, Hot-Reload disabled)"; \
+	cmd "run"            "Runs the scene in standard Debug mode (Hot-Reload active via F4)"; \
+	cmd "debug"          "Runs the scene explicitly in Debug mode (Hot-Reload active)"; \
+	cmd "release"        "Runs the scene in Release mode (--release, Hot-Reload disabled)"; \
 	sec "Tests & Sanity:"; \
-	cmd "test"           "Runs unit tests for modules (physics, graphics, gameplay)"; \
+	cmd "test"           "Runs unit tests for modules (environment, graphics, window)"; \
 	cmd "check"          "Checks static types (Pyright) and style/lint (Ruff)"; \
 	cmd "lint"           "Alias for 'make check'"; \
 	sec "Maintenance & Cleanup:"; \
@@ -48,9 +48,9 @@ release:
 
 test:
 	echo "🧪 Executing Sinucadas unit tests..."
-	$(PYTHON) physics.py
+	$(PYTHON) environment.py
 	$(PYTHON) graphics.py
-	$(PYTHON) gameplay.py
+	$(PYTHON) window.py
 	echo "✅ All module tests passed successfully!"
 
 ### ================================

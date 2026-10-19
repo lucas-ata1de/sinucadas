@@ -97,6 +97,80 @@ FELT_COLORS = (FELT_GREEN, FELT_BLUE, FELT_RED, FELT_BLACK)
 WOOD_COLOR = (0.35, 0.18, 0.08, 1.0)
 LINE_COLOR = (0.90, 0.90, 0.90, 0.5)
 
+COLOR_YELLOW = (0.95, 0.85, 0.15, 1.0)
+COLOR_BLUE = (0.15, 0.35, 0.85, 1.0)
+COLOR_RED = (0.85, 0.15, 0.15, 1.0)
+COLOR_PURPLE = (0.50, 0.15, 0.65, 1.0)
+COLOR_ORANGE = (0.95, 0.50, 0.15, 1.0)
+COLOR_GREEN = (0.15, 0.65, 0.25, 1.0)
+COLOR_BROWN = (0.50, 0.25, 0.15, 1.0)
+COLOR_BLACK = (0.10, 0.10, 0.10, 1.0)
+COLOR_STRIPED_YELLOW = (0.95, 0.90, 0.50, 1.0)
+COLOR_STRIPED_BLUE = (0.45, 0.65, 0.95, 1.0)
+COLOR_STRIPED_RED = (0.95, 0.45, 0.45, 1.0)
+COLOR_STRIPED_PURPLE = (0.70, 0.35, 0.85, 1.0)
+COLOR_STRIPED_ORANGE = (0.95, 0.65, 0.25, 1.0)
+COLOR_STRIPED_GREEN = (0.35, 0.80, 0.45, 1.0)
+COLOR_STRIPED_BROWN = (0.60, 0.10, 0.30, 1.0)
+
+BALL_COLORS = (
+    COLOR_YELLOW,
+    COLOR_BLUE,
+    COLOR_RED,
+    COLOR_PURPLE,
+    COLOR_ORANGE,
+    COLOR_GREEN,
+    COLOR_BROWN,
+    COLOR_BLACK,
+    COLOR_STRIPED_YELLOW,
+    COLOR_STRIPED_BLUE,
+    COLOR_STRIPED_RED,
+    COLOR_STRIPED_PURPLE,
+    COLOR_STRIPED_ORANGE,
+    COLOR_STRIPED_GREEN,
+    COLOR_STRIPED_BROWN,
+)
+
+CUE_BALL_COLOR = (0.96, 0.96, 0.96, 1.0)
+
+
+def create_scene_balls() -> list[dict[str, Any]]:
+    """Gera as 16 bolas na mesa (bola branca na saída e triângulo no foot spot)."""
+    cue_ball = {
+        "id": 0,
+        "pos": [-0.45, 0.0],
+        "color": CUE_BALL_COLOR,
+    }
+    balls: list[dict[str, Any]] = [cue_ball]
+    x0 = 0.30
+    diameter = BALL_RADIUS * 2.0
+    dx = diameter * 0.866
+    dy = diameter * 1.02
+
+    color_index = 0
+    for col in range(5):
+        col_x = x0 + col * dx
+        start_y = -(col * dy) / 2.0
+        for row in range(col + 1):
+            col_y = start_y + row * dy
+            if col == 2 and row == 1:
+                color = COLOR_BLACK
+            elif color_index == 7:
+                color = COLOR_YELLOW
+                color_index += 1
+            else:
+                color = BALL_COLORS[color_index % len(BALL_COLORS)]
+                color_index += 1
+
+            balls.append(
+                {
+                    "id": len(balls),
+                    "pos": [col_x, col_y],
+                    "color": color,
+                }
+            )
+    return balls
+
 
 def create_circle_geometry(num_segments: int = 36) -> np.ndarray:
     """Gera vértices para leque de triângulos (TRIANGLE_FAN) com raio unitário centrado na origem."""
@@ -312,11 +386,9 @@ def _draw_balls(
     circle_count: int,
     balls: list[dict[str, Any]],
 ) -> None:
-    """Renderiza todas as bolas ativas em suas posições atuais com suas respectivas cores."""
+    """Renderiza todas as bolas da cena em suas posições com suas respectivas cores."""
     _set_uniform(prog, "u_scale", BALL_RADIUS)
     for ball in balls:
-        if ball.get("pocketed", False):
-            continue
         _set_uniform(prog, "u_offset", tuple(ball["pos"]))
         _set_uniform(prog, "u_color", ball["color"])
         vao_circle.render(moderngl.TRIANGLE_FAN, vertices=circle_count)
@@ -398,7 +470,7 @@ if __name__ == "__main__":
 
     if test_ctx is not None:
         p = setup_graphics(test_ctx)
-        test_balls = [{"pos": [-0.45, 0.0], "color": (1.0, 1.0, 1.0, 1.0), "pocketed": False}]
+        test_balls = create_scene_balls()
         test_cue = {"angle": 0.0, "power": 0.5, "visible": True}
         render_scene(test_ctx, p, test_balls, proj_scale=(1.0, 1.0), cue=test_cue)
 

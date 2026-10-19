@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Ponto de entrada principal e loop da aplicação Sinucadas.
-Coordena a criação da janela, pipeline gráfico, física/gameplay e limpeza de recursos.
+Ponto de entrada principal e loop da aplicação Sinucadas (Atividade 02 - Cena 2D Interativa).
+Coordena a criação da janela, pipeline gráfico, controles mecânicos e limpeza de recursos.
 Oferece suporte aos modos Debug (Hot-Reload via F4) e Release (--release).
 """
 
@@ -12,14 +12,13 @@ from typing import Any
 import glfw
 import moderngl
 
-from gameplay import (
-    init_cue,
-    init_gameplay,
-    process_cue_controls,
-    shoot_cue_ball,
-    update_gameplay,
+from graphics import (
+    FELT_COLORS,
+    create_scene_balls,
+    get_projection_scale,
+    render_scene,
+    setup_graphics,
 )
-from graphics import FELT_COLORS, get_projection_scale, render_scene, setup_graphics
 from window import init_window, register_hot_reload, release_resource, update_time
 
 
@@ -32,17 +31,52 @@ def _print_banner(is_release: bool) -> None:
 
 
 def _print_controls() -> None:
-    """Exibe no terminal o sumário de controles do jogo."""
-    print("\n[Sinucadas] 🎱 Table initialized successfully!")
+    """Exibe no terminal o sumário de controles da cena interativa."""
+    print("\n[Sinucadas] 🎱 Interactive 2D Billiard Scene initialized!")
     print("Controls:")
-    print("  • ← / →: Rotate cue aim around the cue ball.")
-    print("  • Shift + ← / → (or A / D): Precision aiming (5x smoother adjustment).")
-    print("  • ↑ / ↓: Pull cue back / adjust shot power.")
-    print("  • SPACE: Shoot the cue ball.")
-    print("  • C: Change table felt color in real time.")
-    print("  • N: Toggle between Day and Night mode (attenuation).")
+    print("  • ← / → (or A / D): Rotate cue stick and aim line around the cue ball.")
+    print("  • Shift + ← / →: Precision rotation (5x smoother adjustment).")
+    print("  • ↑ / ↓ (or W / S): Pull back / advance cue stick distance.")
+    print("  • C: Change table felt color dynamically in real time.")
+    print("  • N: Toggle Day / Night mode (background clear + lighting attenuation).")
     print("  • F4: Reload shaders in real time (Debug mode).")
     print("  • ESC: Exit application.\n")
+
+
+def _init_cue() -> dict[str, Any]:
+    """Inicializa o estado da mira e da distância mecânica do taco de sinuca."""
+    return {"angle": 0.0, "power": 0.0, "visible": True}
+
+
+def _process_cue_controls(cue: dict[str, Any], window: Any, dt: float) -> None:
+    """Processa entradas contínuas de rotação mecânica e distância do taco via teclado."""
+    is_precision = (
+        glfw.get_key(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS
+        or glfw.get_key(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
+    )
+    rotation_speed = 0.35 if is_precision else 1.75
+
+    if glfw.get_key(window, glfw.KEY_LEFT) == glfw.PRESS:
+        cue["angle"] += rotation_speed * dt
+    elif glfw.get_key(window, glfw.KEY_A) == glfw.PRESS:
+        cue["angle"] += 0.35 * dt
+
+    if glfw.get_key(window, glfw.KEY_RIGHT) == glfw.PRESS:
+        cue["angle"] -= rotation_speed * dt
+    elif glfw.get_key(window, glfw.KEY_D) == glfw.PRESS:
+        cue["angle"] -= 0.35 * dt
+
+    power_speed = 0.65
+    if (
+        glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS
+        or glfw.get_key(window, glfw.KEY_W) == glfw.PRESS
+    ):
+        cue["power"] = min(1.0, cue["power"] + power_speed * dt)
+    if (
+        glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS
+        or glfw.get_key(window, glfw.KEY_S) == glfw.PRESS
+    ):
+        cue["power"] = max(0.0, cue["power"] - power_speed * dt)
 
 
 def _setup_hot_reload(ctx: moderngl.Context, pipeline: dict[str, Any]) -> None:
@@ -63,18 +97,15 @@ def _setup_hot_reload(ctx: moderngl.Context, pipeline: dict[str, Any]) -> None:
 
 
 def _create_key_callback(
-    cue: dict[str, Any], balls: list[dict[str, Any]], visual_state: dict[str, Any]
+    visual_state: dict[str, Any],
 ) -> Callable[[Any, int, int, int, int], None]:
-    """Cria o callback de teclado tratando comandos discretos (ESC, ESPAÇO, C, N)."""
+    """Cria o callback de teclado tratando comandos discretos (ESC, C, N)."""
 
     def on_key_event(window_obj: Any, key: int, scancode: int, action: int, mods: int) -> None:
         if action != glfw.PRESS:
             return
         if key == glfw.KEY_ESCAPE:
             glfw.set_window_should_close(window_obj, True)
-        elif key == glfw.KEY_SPACE:
-            if shoot_cue_ball(cue, balls):
-                print("[Sinucadas] 💥 Shot fired!")
         elif key == glfw.KEY_C:
             visual_state["felt_index"] = (visual_state["felt_index"] + 1) % len(FELT_COLORS)
             print(
@@ -90,7 +121,7 @@ def _create_key_callback(
     return on_key_event
 
 
-def _run_game_loop(
+def _run_scene_loop(
     window: Any,
     ctx: moderngl.Context,
     pipeline: dict[str, Any],
@@ -98,13 +129,12 @@ def _run_game_loop(
     cue: dict[str, Any],
     visual_state: dict[str, Any],
 ) -> None:
-    """Executa o loop contínuo de simulação física, polling de entrada e renderização gráfica."""
+    """Executa o loop contínuo de polling de entrada e renderização da cena 2D."""
     t0 = glfw.get_time()
     while not glfw.window_should_close(window):
         t0, dt = update_time(t0)
 
-        process_cue_controls(cue, window, dt)
-        update_gameplay(balls, cue, dt)
+        _process_cue_controls(cue, window, dt)
         proj_scale = get_projection_scale(window)
 
         render_scene(
@@ -126,15 +156,15 @@ def main() -> None:
     is_release = "--release" in sys.argv
     _print_banner(is_release)
 
-    cue = init_cue()
-    balls = init_gameplay()
+    cue = _init_cue()
+    balls = create_scene_balls()
     visual_state = {"felt_index": 0, "night_mode": False}
 
-    key_callback = _create_key_callback(cue, balls, visual_state)
+    key_callback = _create_key_callback(visual_state)
     mode_name = "Release" if is_release else "Debug"
     window, ctx = init_window(
         size=(800, 600),
-        title=f"Sinucadas [{mode_name}]",
+        title=f"Sinucadas - Interactive 2D Scene [{mode_name}]",
         enable_hot_reload=not is_release,
         user_key_callback=key_callback,
     )
@@ -144,7 +174,7 @@ def main() -> None:
         _setup_hot_reload(ctx, pipeline)
 
     _print_controls()
-    _run_game_loop(window, ctx, pipeline, balls, cue, visual_state)
+    _run_scene_loop(window, ctx, pipeline, balls, cue, visual_state)
 
     release_resource(pipeline, ctx)
     glfw.terminate()

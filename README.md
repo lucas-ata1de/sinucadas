@@ -1,49 +1,47 @@
-# Sinucadas
+# Sinucadas — Cena 2D Interativa
 
-Jogo 2D interativo de sinuca desenvolvido em Python para a Atividade 02 de Computação Gráfica, utilizando **ModernGL**, **GLFW**, **NumPy** e **PyGLM** sobre o perfil estrito **OpenGL 4.0 Core Profile**.
+Cena 2D interativa de sinuca desenvolvida em Python para a **Atividade 02 de Computação Gráfica**, utilizando **ModernGL**, **GLFW** e **NumPy** sobre o perfil estrito **OpenGL 4.0 Core Profile**.
 
 ---
 
-## 🎮 Como Jogar e Controles
+## 🎯 Atendimento aos Requisitos do Enunciado
 
-O jogo conta com controles completos via teclado para rotação ágil e de alta precisão, dosagem de força e execução de tacadas com física elástica em tempo real.
+| Requisito do Enunciado | Implementação no Projeto | Primitiva / Recurso Técnico |
+| :--- | :--- | :--- |
+| **Composição da Cena** | Mesa completa: tabelas de madeira, feltro, 6 caçapas, marcações de baulk ("D" de sinuca), triângulo de 15 bolas coloridas, bola branca e taco de sinuca com mira tracejada. | Composição rica de múltiplos elementos visuais. |
+| **Múltiplas Primitivas** | Construção da cena utilizando 4 primitivas distintas do OpenGL. | `TRIANGLES` (mesa, bordas e taco), `TRIANGLE_FAN` (círculos das caçapas e bolas), `LINE_STRIP` (linha de saída e arco de baulk), `LINES` (mira tracejada). |
+| **Reaproveitamento de Geometria** | Um único VBO circular unitário (`vao_circle`) é gerado na inicialização e reutilizado para desenhar 22 círculos distintos (6 caçapas + 16 bolas). | `u_offset`, `u_scale` e `u_color` aplicados no Vertex e Fragment Shader. |
+| **Alternância Dia / Noite** | Tecla `N` comuta o estado global da cena entre iluminação diurna e ambiente noturno (holofote). | `ctx.clear(0.82, 0.82, 0.85)` / `ctx.clear(0.05, 0.05, 0.08)` + uniform `u_attenuation` (1.0 vs 0.40). |
+| **Alteração Dinâmica de Cores** | Tecla `C` altera em tempo real a cor do feltro da mesa ciclando entre 4 paletas clássicas. | Verde Clássico, Azul Royal, Vermelho Bordô e Preto Carbono via uniform `u_color`. |
+| **Movimentação mecânica (Setas)** | Setas do teclado controlam a orientação angular e a translação mecânica do taco em relação à bola branca. | `←` / `→` para rotação contínua (com ajuste fino via `Shift`); `↑` / `↓` para recuo/aproximação do taco. |
+| **OpenGL Core Profile** | Pipeline programável estrito (OpenGL 4.0 Core), sem recursos legados (`glBegin`, `glEnd`, matrizes embutidas). | ModernGL com shaders GLSL 400 Core customizados (`shader.vert` e `shader.frag`). |
+
+---
+
+## 🎮 Controles e Interação
 
 | Tecla | Ação | Descrição |
 | :--- | :--- | :--- |
-| `←` / `→` | **Girar Mira (Ágil)** | Rotaciona o taco de sinuca e a linha guia tracejada ao redor da bola branca em velocidade normal (1.75 rad/s). |
-| `Shift + ← / →` | **Mira de Precisão** | Modo de ajuste fino (0.35 rad/s, 5x mais suave) para alinhamentos milimétricos em bolas ou caçapas distantes. |
-| `A` / `D` | **Ajuste Fino (Teclas Alternativas)** | Micro-ajustes de mira para correções minuciosas de ângulo. |
-| `↑` / `↓` | **Dosar Força** | Puxa o taco para trás aumentando a força da tacada (efeito visual de recuo dinâmico do taco) ou diminui a força. |
-| `ESPAÇO` | **Tacada** | Aplica o impulso na bola branca na direção e intensidade configuradas. |
+| `←` / `→` | **Girar Taco (Ágil)** | Rotaciona o taco de sinuca e a linha guia tracejada ao redor da bola branca (1.75 rad/s). |
+| `Shift + ← / →` | **Giro de Precisão** | Modo de ajuste fino (0.35 rad/s, 5x mais suave) para alinhamento milimétrico da mira. |
+| `A` / `D` | **Ajuste Fino Alternativo** | Micro-ajustes angulares utilizando a mão esquerda. |
+| `↑` / `↓` (ou `W` / `S`) | **Distância / Recuo do Taco** | Puxa o taco para trás ou aproxima-o da bola branca (ajuste contínuo da distância mecânica). |
 | `C` | **Cor do Feltro** | Alterna ciclicamente a cor da mesa em tempo real (Verde, Azul, Vermelho e Preto). |
-| `N` | **Dia / Noite** | Alterna entre o modo Dia (salão iluminado) e Noite (holofote focado na mesa com atenuação de luz). |
-| `F4` | **Hot-Reload** | Recarrega shaders GLSL em tempo real sem reiniciar a aplicação (disponível no modo Debug). |
+| `N` | **Dia / Noite** | Alterna entre o modo Dia (salão claro) e Noite (mesa com iluminação focada e fundo escuro). |
+| `F4` | **Hot-Reload** | Recarrega shaders GLSL em tempo real sem fechar a janela (modo Debug). |
 | `ESC` | **Sair** | Encerra a aplicação e libera com segurança todos os recursos gráficos alocados na GPU. |
-
----
-
-## 🎱 Mecânicas e Modelo Físico
-
-1. **Mira Guiada Tracejada**: Uma linha tracejada (`moderngl.LINES`) projeta a trajetória planejada da tacada à frente da bola branca.
-2. **Animação Conicidade e Recuo do Taco**: O taco é desenhado com `moderngl.TRIANGLES` com conicidade e gradiente de madeira (marfim, madeira dourada e base escura). Ao segurar `↑`, o buffer dinâmico de vértices atualiza o recuo físico do taco.
-3. **Colisões Elásticas Bola-Bola**: Algoritmo de resolução de contato círculo-círculo com separação de sobreposição geométrica e conservação de momento linear ($e = 0.96$). Executa 3 sub-iterações por frame para estabilidade perfeita durante o estouro do triângulo de 15 bolas.
-4. **Encaçapamento Inteligente**: Bolas numeradas que entram no raio das 6 caçapas são marcadas como encaçapadas e removidas do jogo. Se a bola branca cair em uma caçapa, a falta é acusada e ela é reposicionada automaticamente na marca de saída.
-5. **Atrito Linear do Feltro e Tabelas**: Todas as bolas ativas sofrem desaceleração gradual exponencial compatível com o delta time e rebatem elasticamente nas 4 tabelas de madeira.
-6. **Projeção Isotrópica Inteligente**: O vertex shader utiliza projeção bidimensional que adapta a escala dinamicamente ao aspecto da janela. A mesa nunca transborda (mesmo em janelas muito altas e estreitas) e as bolas mantêm circularidade absoluta sem distorção.
 
 ---
 
 ## 📁 Estrutura do Projeto
 
-- `main.py`: Ponto de entrada, loop principal, pooling de eventos contínuos e troca de buffers.
-- `graphics.py`: Compilação de shaders, inicialização de geometria (VAO/VBO/EBO) de múltiplas primitivas (tabelas, feltro, caçapas, bolas, taco cônico e linha de mira tracejada).
-- `gameplay.py`: Estado das 16 bolas, rotação da mira (ágil e precisão), dosagem de força, atrito do feltro, rebotes e caçapas.
-- `physics.py`: Motor de física 2D (colisões elásticas entre bolas com conservação de momento linear, rebote nas tabelas da mesa e detecção de encaçapamento).
-- `window.py`: Inicialização da janela GLFW, callbacks de teclado e redimensionamento de viewport.
-- `environment.py`: Utilitário universal de runtime (compilação segura, observer de hot-reload, projeção isotrópica e limpeza determinística).
-- `shaders/shader.vert`: Vertex shader com rotação 2D na GPU e projeção bidimensional.
-- `shaders/shader.frag`: Fragment shader com atenuação de iluminação para alternância dia/noite.
-- `Makefile`: Orquestrador de compilação, execução, testes e análise estática de código.
+- `main.py`: Ponto de entrada, loop de renderização, pooling de eventos contínuos e tratamento de teclas.
+- `graphics.py`: Compilação de shaders, geometrias (VAO/VBO/EBO), múltiplas primitivas (`TRIANGLES`, `TRIANGLE_FAN`, `LINE_STRIP`, `LINES`), projeção isotrópica e renderização da cena.
+- `window.py`: Inicialização da janela GLFW em OpenGL 4.0 Core, callbacks e gerenciamento do viewport ModernGL.
+- `environment.py`: Utilitário de ambiente e cursor XCURSOR para prevenção de distorções visuais no Wayland/X11.
+- `shaders/shader.vert`: Vertex shader com rotação 2D na GPU e projeção bidimensional isotrópica.
+- `shaders/shader.frag`: Fragment shader com modulação de cor e atenuação de iluminação para modo Dia/Noite.
+- `Makefile`: Orquestrador de compilação, execução, testes unitários e análise estática de código.
 
 ---
 
@@ -59,11 +57,11 @@ uv venv --system-site-packages && uv sync
 
 ### Modos de Execução
 
-Você pode executar o jogo tanto pelo Makefile (que chama o `uv run` automaticamente) quanto diretamente via Python.
+Você pode executar a aplicação tanto pelo Makefile (que chama o `uv run` automaticamente) quanto diretamente via Python.
 
 #### Modo Debug (Padrão — Hot-Reload Ativo)
 
-Executa o jogo em modo de desenvolvimento. Pressione **`F4`** durante a partida para recompilar shaders em tempo real sem reiniciar a aplicação ou fechar a janela:
+Executa a cena em modo de desenvolvimento. Pressione **`F4`** durante a execução para recompilar shaders em tempo real sem reiniciar a aplicação ou fechar a janela:
 
 Pelo Makefile:
 ```bash
@@ -77,7 +75,7 @@ python3 main.py
 
 #### Modo Release (Otimizado — Hot-Reload Desativado)
 
-Executa o jogo em modo de produção focado em máxima performance e estabilidade, com o listener de hot-reload desativado:
+Executa a cena em modo de apresentação focado em máxima performance e estabilidade:
 
 Pelo Makefile:
 ```bash
@@ -95,7 +93,7 @@ python3 main.py --release
 
 ### Testes Unitários de Módulos
 
-Valida geometria computacional, física elástica, compilação de shaders e estado do jogo:
+Valida o pipeline gráfico, inicialização das primitivas e ambiente de janela:
 
 ```bash
 make test
