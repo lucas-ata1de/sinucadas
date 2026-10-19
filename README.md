@@ -49,15 +49,24 @@ O jogo conta com controles completos via teclado para rotação ágil e de alta 
 
 ## 🚀 Como Executar
 
-Instale as dependências:
+### Pré-requisitos & Ambiente Automático (`uv`)
+
+O ambiente é gerenciado pelo **`uv`** com o mecanismo `--system-site-packages` (dispensando ativação manual com `source`):
 
 ```bash
-pip install -r requirements.txt
+uv venv --system-site-packages && uv sync
 ```
 
 ### Modos de Execução
 
-#### Modo Debug (Padrão — Hot-Reload Ativo)
+Executar pelo Makefile (que chama o `uv run` automaticamente):
+
+```bash
+make run      # Executa o jogo em modo Debug (Hot-Reload ativo via F4)
+make release  # Executa o jogo em modo Release (máxima performance)
+make test     # Executa os testes unitários de física e geometria
+make check    # Executa a verificação estática com Ruff e Pyright
+```
 
 Pressione **F4** durante a partida para recompilar shaders em tempo real.
 

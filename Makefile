@@ -7,9 +7,8 @@ MAKEFLAGS += --no-print-directory -s
 # Makefile: Sinucadas (Atividade 02 — OpenGL 4.0 Core)
 # ----------------------------------------------------------------
 
-PYTHON = python3 -B
+PYTHON = $(shell which uv > "/dev/null" 2>&1 && echo "uv run --quiet python -B" || echo "python3 -B")
 export PYTHONDONTWRITEBYTECODE = 1
-export PYTHONPATH := /home/gabriel/.gemini/antigravity-cli/brain/052bc2e8-60ff-4d35-b8cc-f1d9bfe33c51/scratch/pylibs:$(PYTHONPATH)
 export RUFF_CACHE_DIR = /tmp/ruff-cache
 
 .PHONY: all run debug release test check lint clean help
@@ -59,16 +58,19 @@ test:
 ### ================================
 check:
 	echo "🔍 [1/2] Verificando sintaxe e estilo com Ruff..."
-	ruff_bin=$$(which ruff 2>/dev/null || find /home/gabrielf/.vscode-oss /home/gabrielf/.vscode -name ruff -type f 2>/dev/null | head -n 1); \
-	if [ -n "$$ruff_bin" ] && [ -x "$$ruff_bin" ]; then \
-		"$$ruff_bin" check --cache-dir /tmp/ruff-cache --select E,F,W --ignore E501 . && echo "  ✅ Ruff: nenhuma violação de sintaxe encontrada."; \
+	if which uv > "/dev/null" 2>&1; then \
+		uv run ruff check --cache-dir /tmp/ruff-cache --select E,F,W --ignore E501 . && echo "  ✅ Ruff: nenhuma violação de sintaxe encontrada."; \
+	elif which ruff > "/dev/null" 2>&1; then \
+		ruff check --cache-dir /tmp/ruff-cache --select E,F,W --ignore E501 . && echo "  ✅ Ruff: nenhuma violação de sintaxe encontrada."; \
 	else \
 		echo "  ⚠️  Ruff não encontrado. Pulando verificação Ruff."; \
 	fi
 	echo "🔍 [2/2] Verificando tipagem estática com Pyright..."
-	if which pyright >/dev/null 2>&1; then \
+	if which uv > "/dev/null" 2>&1; then \
+		uv run pyright . && echo "  ✅ Pyright: 0 erros de tipagem encontrados."; \
+	elif which pyright > "/dev/null" 2>&1; then \
 		pyright . && echo "  ✅ Pyright: 0 erros de tipagem encontrados."; \
-	elif which npx >/dev/null 2>&1; then \
+	elif which npx > "/dev/null" 2>&1; then \
 		npx --yes pyright . && echo "  ✅ Pyright: 0 erros de tipagem encontrados."; \
 	else \
 		echo "  ⚠️  Pyright/npx não encontrado. Instale Node.js/npx ou pyright para checar tipos."; \
@@ -82,7 +84,7 @@ lint: check
 ### ================================
 clean:
 	echo "🧹 Limpando caches temporários (__pycache__, *.pyc, .ruff_cache)..."
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2> "/dev/null" || true
+	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2> "/dev/null" || true
+	find . -type f -name "*.pyc" -delete 2> "/dev/null" || true
 	echo "✅ Caches limpos com sucesso!"

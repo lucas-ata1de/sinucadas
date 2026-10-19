@@ -5,9 +5,8 @@
     ".git"
   ],
   "extraPaths": [
-    "/home/gabrielf/Downloads/CG/Código",
-    "/home/gabriel/.gemini/antigravity-cli/brain/052bc2e8-60ff-4d35-b8cc-f1d9bfe33c51/scratch/pylibs"
+    "../../../Código"
   ],
   "typeCheckingMode": "basic",
-  "pythonVersion": "3.13"
+  "pythonVersion": "3.11"
 }
