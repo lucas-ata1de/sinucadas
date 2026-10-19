@@ -12,8 +12,10 @@ O jogo conta com controles completos via teclado para rotação ágil e de alta 
 | :--- | :--- | :--- |
 | `←` / `→` | **Girar Mira (Ágil)** | Rotaciona o taco de sinuca e a linha guia tracejada ao redor da bola branca em velocidade normal (1.75 rad/s). |
 | `Shift + ← / →` | **Mira de Precisão** | Modo de ajuste fino (0.35 rad/s, 5x mais suave) para alinhamentos milimétricos em bolas ou caçapas distantes. |
-| `A` / `D` | **Ajuste Fino (Teclas Alternativas)** | Micro-ajustes de mira para correções minuciosas de ângulo. |
-| `↑` / `↓` | **Dosar Força** | Puxa o taco para trás aumentando a força da tacada (efeito visual de recuo dinâmico do taco) ou diminui a força. |
+| `A` / `D` | **Mira Alternativa** | Micro-ajustes de mira para correções minuciosas de ângulo. |
+| `↑` / `↓` | **Dosar Força (Ágil)** | Puxa o taco para trás aumentando a força da tacada ou diminui a força (velocidade normal). |
+| `Shift + ↑ / ↓` | **Força com Precisão** | Ajuste fino e suave da dosagem de força da tacada. |
+| `W` / `S` | **Força Alternativa** | Micro-ajustes de dosagem de força utilizando a mão esquerda. |
 | `ESPAÇO` | **Tacada** | Aplica o impulso na bola branca na direção e intensidade configuradas. |
 | `C` | **Cor do Feltro** | Alterna ciclicamente a cor da mesa em tempo real (Verde, Azul, Vermelho e Preto). |
 | `N` | **Dia / Noite** | Alterna entre o modo Dia (salão iluminado) e Noite (holofote focado na mesa com atenuação de luz). |

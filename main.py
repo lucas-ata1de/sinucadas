@@ -38,6 +38,7 @@ def _print_controls() -> None:
     print("  • ← / →: Rotate cue aim around the cue ball.")
     print("  • Shift + ← / → (or A / D): Precision aiming (5x smoother adjustment).")
     print("  • ↑ / ↓: Pull cue back / adjust shot power.")
+    print("  • Shift + ↑ / ↓ (or W / S): Precision power adjustment (smoother).")
     print("  • SPACE: Shoot the cue ball.")
     print("  • C: Change table felt color in real time.")
     print("  • N: Toggle between Day and Night mode (attenuation).")

@@ -20,7 +20,7 @@ Jogo bidimensional de sinuca animado com física e tempo real em ModernGL e GLFW
 * **Ambiente Visual**: Alternância de cor do feltro (`C`), Dia/Noite (`N`) e Hot-Reload (`F4`).
 
 ### 3. Jogabilidade & Controles
-* **Taco e Mira**: Rotação ágil (`←`/`→`), precisão (`Shift`) e dosagem de força (`↑`/`↓`).
+* **Taco e Mira**: Rotação ágil (`←`/`→` ou `A`/`D`) e precisão (`Shift`); dosagem de força (`↑`/`↓` ou `W`/`S`) com modo suave (`Shift`).
 * **Disparo (`ESPAÇO`)**: Aplicação de impulso físico vetorial na bola branca.
 
 ---

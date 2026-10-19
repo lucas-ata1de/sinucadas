@@ -81,12 +81,22 @@ def _update_cue_angle(cue: dict[str, Any], window: Any, dt: float) -> None:
 
 
 def _update_cue_power(cue: dict[str, Any], window: Any, dt: float) -> None:
-    """Ajusta a força acumulada do taco com as setas para cima/baixo."""
-    power_speed = 0.65
+    """Ajusta a força acumulada do taco com suporte a ajuste fino (Shift ou W/S)."""
+    is_precision = (
+        glfw.get_key(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS
+        or glfw.get_key(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
+    )
+    speed = 0.15 if is_precision else 0.65
+
     if glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS:
-        cue["power"] = min(1.0, cue["power"] + power_speed * dt)
+        cue["power"] = min(1.0, cue["power"] + speed * dt)
+    elif glfw.get_key(window, glfw.KEY_W) == glfw.PRESS:
+        cue["power"] = min(1.0, cue["power"] + 0.15 * dt)
+
     if glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS:
-        cue["power"] = max(0.0, cue["power"] - power_speed * dt)
+        cue["power"] = max(0.0, cue["power"] - speed * dt)
+    elif glfw.get_key(window, glfw.KEY_S) == glfw.PRESS:
+        cue["power"] = max(0.0, cue["power"] - 0.15 * dt)
 
 
 def process_cue_controls(cue: dict[str, Any], window: Any, dt: float) -> None:
