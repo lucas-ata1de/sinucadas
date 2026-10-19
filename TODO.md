@@ -1,48 +1,34 @@
-# 📋 TODO — Atividade 02: Sinucadas
+# Planejamento & Recursos — Atividade 03 (Jogo 2D Animado)
 
-Planejamento e acompanhamento das etapas de desenvolvimento para a Atividade 02 de Computação Gráfica.
-
----
-
-## 🎯 Requisitos Oficiais do Enunciado
-
-- [x] Arquitetura modular em camadas (`window`, `graphics`, `physics`, `gameplay`, `environment`).
-- [x] Shaders customizados em GLSL (`.vert`, `.frag`) em OpenGL 4.0 Core Profile (`shader.vert` e `shader.frag`).
-- [x] Remoção de shaders obsoletos desnecessários (`bola.vert` e `uniquad.vert`).
-- [x] Proteção e correção dinâmica de aspect ratio (`uniform float u_aspect`).
-- [x] Hot-reload de shaders em tempo real via tecla F4.
-- [x] **Múltiplas Primitivas:**
-  - [x] `moderngl.TRIANGLES` (feltro da mesa e moldura das 4 tabelas de madeira).
-  - [x] `moderngl.TRIANGLE_FAN` (leque circular para as 6 caçapas e 16 bolas).
-  - [x] `moderngl.LINE_STRIP` (linha de saída e arco "D" da mesa).
-- [x] **Reaproveitamento de Geometria:**
-  - [x] Buffer de círculo único na VRAM instanciado/desenhado para todas as bolas e caçapas.
-  - [x] Buffer retangular único para as bordas e feltro.
-- [x] **Alternância Global de Estado (Dia/Noite com Tecla N):**
-  - [x] Transição de cor de fundo com `ctx.clear`.
-  - [x] Atenuação de cor dos elementos via `uniform float u_attenuation` no fragment shader.
-- [x] **Alteração Dinâmica de Cores (Tecla C):**
-  - [x] Ciclo de 4 cores do feltro da mesa em tempo real (Verde, Azul, Vermelho, Preto).
-- [x] **Movimentação Mecânica por Teclado:**
-  - [x] Setas `←` e `→` para girar o ângulo de mira do taco ao redor da bola branca.
-  - [x] Setas `↑` e `↓` para dosar a força da tacada (recuo visual do taco).
-  - [x] Barra de `ESPAÇO` para disparar a tacada na bola branca.
-- [x] **Física 2D de Sinuca:**
-  - [x] Desaceleração por atrito linear do feltro.
-  - [x] Rebote elástico contra as 4 tabelas de madeira.
-  - [x] Colisão elástica bidimensional entre bolas.
-  - [x] Detecção de encaçapamento (bola dentro do raio da caçapa).
-- [ ] **Entrega e Relatório:**
-  - [ ] Captura de screenshots dos modos Dia e Noite.
-  - [ ] Redação do relatório PDF formal com explicação da arquitetura.
-  - [ ] Preparação conceitual para a defesa oral com o professor.
+Jogo bidimensional de sinuca animado com física e tempo real em ModernGL e GLFW sob OpenGL 4.0 Core Profile.
 
 ---
 
-## 🧭 Fases de Execução
+## 🎱 Recursos Implementados
 
-1. [x] **Fase 1:** Geometria 2D, Múltiplas Primitivas, Shaders Limpos e Correção de Aspect Ratio.
-2. [x] **Fase 2:** Shaders, Uniforms de Atenuação e Alternância Dia/Noite + Cores do Feltro.
-3. [x] **Fase 3:** Taco de Sinuca, Linha Guia e Controles de Mira/Tiro via Teclado.
-4. [x] **Fase 4:** Lógica de Física Completa (Colisões Círculo-Círculo e Caçapas).
-5. [ ] **Fase 5:** Screenshots, Relatório em PDF e Preparação para a Defesa Oral.
+### 1. Motor Físico & Cinemática
+* **Animação por $\Delta t$**: Cinemática temporal contínua e passo máximo para evitar saltos.
+* **Colisão Círculo-Círculo**: Separação geométrica e conservação de momento linear ($e = 0.96$).
+* **Rebote em Tabelas**: Reflexão elástica nas 4 bordas da mesa com restituição física.
+* **Atrito do Feltro**: Desaceleração exponencial realista por rolagem.
+* **Encaçapamento**: Detecção nas 6 caçapas, contagem de bolas e penalidade de falta na branca.
+
+### 2. Primitivas Gráficas & Shaders
+* **Múltiplas Primitivas**: `TRIANGLES` (mesa e taco), `TRIANGLE_FAN` (bolas e caçapas), `LINE_STRIP` (linhas de baulk) e `LINES` (mira).
+* **Reaproveitamento de VBO**: Círculo unitário único compartilhado por todas as bolas e caçapas.
+* **Shaders Customizados**: Vertex shader com projeção isotrópica e fragment shader com atenuação.
+* **Ambiente Visual**: Alternância de cor do feltro (`C`), Dia/Noite (`N`) e Hot-Reload (`F4`).
+
+### 3. Jogabilidade & Controles
+* **Taco e Mira**: Rotação ágil (`←`/`→`), precisão (`Shift`) e dosagem de força (`↑`/`↓`).
+* **Disparo (`ESPAÇO`)**: Aplicação de impulso físico vetorial na bola branca.
+
+---
+
+## 📌 Próximos Passos (Requisitos da Atividade 03)
+
+1. **Estados do Jogo**: Máquina de estados (Início, Em Andamento, Pausado, Fim de Jogo com reinício).
+2. **Taxa de Quadros & VSync**: Alternância de VSync (`glfw.swap_interval`) e FPS na barra de título.
+3. **Placar em Geometria**: Renderizar bolas encaçapadas/vidas diretamente na cena com primitivas.
+4. **Animação Autônoma**: Elemento auxiliar com movimentação periódica independente.
+5. **Relatório & Screenshots**: Capturas de tela dos estados e documento PDF para o Moodle.
