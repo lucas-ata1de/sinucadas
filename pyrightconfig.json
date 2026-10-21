@@ -1,12 +1,7 @@
 {
-  "include": ["."],
-  "exclude": [
-    "**/__pycache__",
-    ".git"
-  ],
-  "extraPaths": [
-    "../../../Código"
-  ],
-  "typeCheckingMode": "basic",
-  "pythonVersion": "3.11"
+	"include": ["."],
+	"exclude": ["**/__pycache__", ".git"],
+	"extraPaths": ["."],
+	"typeCheckingMode": "basic",
+	"pythonVersion": "3.11"
 }
