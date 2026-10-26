@@ -4,10 +4,10 @@
 MAKEFLAGS += --no-print-directory -s
 
 # ----------------------------------------------------------------
-# Makefile: Sinucadas (Atividade 03 — OpenGL 4.0 Core)
+# ENVIRONMENT & TOOLCHAIN CONFIGURATION
 # ----------------------------------------------------------------
 
-PYTHON = $(shell which uv > "/dev/null" 2>&1 && echo "uv run --quiet python -B" || echo "python3 -B")
+PYTHON != which uv > "/dev/null" 2>&1 && echo "uv run --quiet python -B" || echo "python3 -B"
 export PYTHONDONTWRITEBYTECODE = 1
 export RUFF_CACHE_DIR = /tmp/ruff-cache
 
@@ -18,10 +18,11 @@ all: run
 ### ================================
 ### HELP & DOCUMENTATION
 ### ================================
+
 help:
 	cmd() { printf "    \033[36mmake %-18s\033[0m %s\n" "$$1" "$$2"; }; \
 	sec() { printf "\n  \033[1;33m%s\033[0m\n" "$$1"; }; \
-	printf "\n  \033[1;37mSinucadas (Atividade 03) — 2D Game in ModernGL\033[0m\n"; \
+	printf "\n  \033[1;37mSinucadas (Atividade 03) — 2D Animated Game in ModernGL\033[0m\n"; \
 	printf "  ============================================================\n"; \
 	sec "Execution & Modes:"; \
 	cmd "run"            "Runs the game in standard Debug mode (Hot-Reload active via F4)"; \
@@ -38,6 +39,7 @@ help:
 ### ================================
 ### EXECUTION & TESTING
 ### ================================
+
 run: debug
 
 debug:
@@ -58,6 +60,7 @@ test:
 ### ================================
 ### STATIC ANALYSIS & LINTING
 ### ================================
+
 check:
 	echo "🔍 [1/2] Checking syntax and style with Ruff..."
 	if which uv > "/dev/null" 2>&1; then \
@@ -84,6 +87,7 @@ lint: check
 ### ================================
 ### CLEANUP
 ### ================================
+
 clean:
 	echo "🧹 Cleaning temporary caches (__pycache__, *.pyc, .ruff_cache)..."
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2> "/dev/null" || true

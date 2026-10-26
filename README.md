@@ -1,12 +1,12 @@
-# Sinucadas
+# Sinucadas — Jogo 2D Animado (Atividade 03)
 
-Jogo 2D interativo de sinuca desenvolvido em Python para a Atividade 02 de Computação Gráfica, utilizando **ModernGL**, **GLFW**, **NumPy** e **PyGLM** sobre o perfil estrito **OpenGL 4.0 Core Profile**.
+Jogo 2D interativo e multiplayer (P1 vs P2) de sinuca desenvolvido em Python para a **Atividade 03** de Computação Gráfica (UFABC), utilizando **ModernGL**, **GLFW**, **NumPy** e **PyGLM** sobre o perfil estrito **OpenGL 4.0 Core Profile**.
 
 ---
 
 ## 🎮 Como Jogar e Controles
 
-O jogo conta com controles completos via teclado para rotação ágil e de alta precisão, dosagem de força e execução de tacadas com física elástica em tempo real.
+O jogo conta com modo **Multiplayer Local (Jogador 1 Azul vs Jogador 2 Vermelho)** em turnos alternados, pontuação oficial de sinuca no título da janela e no HUD geométrico, raycast analítico de mira (Ghost Ball), dosagem de força, máquina de estados (Início, Jogo, Pausa, Vitória e Derrota) e controle de V-Sync.
 
 | Tecla | Ação | Descrição |
 | :--- | :--- | :--- |
@@ -16,110 +16,52 @@ O jogo conta com controles completos via teclado para rotação ágil e de alta 
 | `↑` / `↓` | **Dosar Força (Ágil)** | Puxa o taco para trás aumentando a força da tacada ou diminui a força (velocidade normal). |
 | `Shift + ↑ / ↓` | **Força com Precisão** | Ajuste fino e suave da dosagem de força da tacada. |
 | `W` / `S` | **Força Alternativa** | Micro-ajustes de dosagem de força utilizando a mão esquerda. |
-| `ESPAÇO` | **Tacada** | Aplica o impulso na bola branca na direção e intensidade configuradas. |
-| `C` | **Cor do Feltro** | Alterna ciclicamente a cor da mesa em tempo real (Verde, Azul, Vermelho e Preto). |
+| `ESPAÇO` | **Tacada / Iniciar** | Aplica o impulso na bola branca na direção e intensidade configuradas (e inicia a partida a partir de `START`). |
+| `P` | **Pausar / Retomar** | Congela ou retoma a simulação física sem acumular o tempo pausado em $\Delta t$. |
+| `R` | **Reiniciar Partida** | Reinicia o estado completo da partida (16 bolas, 3 vidas, turnos e placar zerado) sem fechar a janela. |
+| `V` | **Alternar V-Sync** | Liga ou desliga o V-Sync (`glfw.swap_interval`) para demonstrar independência de FPS. |
+| `C` | **Cor do Feltro** | Alterna ciclicamente a cor da mesa em tempo real (Verde, Azul, Vermelho e Grafite). |
 | `N` | **Dia / Noite** | Alterna entre o modo Dia (salão iluminado) e Noite (holofote focado na mesa com atenuação de luz). |
 | `F4` | **Hot-Reload** | Recarrega shaders GLSL em tempo real sem reiniciar a aplicação (disponível no modo Debug). |
 | `ESC` | **Sair** | Encerra a aplicação e libera com segurança todos os recursos gráficos alocados na GPU. |
 
 ---
 
-## 🎱 Mecânicas e Modelo Físico
+## 🎱 Mecânicas Multiplayer, Pontuação e Modelo Físico
 
-1. **Mira Guiada Tracejada**: Uma linha tracejada (`moderngl.LINES`) projeta a trajetória planejada da tacada à frente da bola branca.
-2. **Animação Conicidade e Recuo do Taco**: O taco é desenhado com `moderngl.TRIANGLES` com conicidade e gradiente de madeira (marfim, madeira dourada e base escura). Ao segurar `↑`, o buffer dinâmico de vértices atualiza o recuo físico do taco.
-3. **Colisões Elásticas Bola-Bola**: Algoritmo de resolução de contato círculo-círculo com separação de sobreposição geométrica e conservação de momento linear ($e = 0.96$). Executa 3 sub-iterações por frame para estabilidade perfeita durante o estouro do triângulo de 15 bolas.
-4. **Encaçapamento Inteligente**: Bolas numeradas que entram no raio das 6 caçapas são marcadas como encaçapadas e removidas do jogo. Se a bola branca cair em uma caçapa, a falta é acusada e ela é reposicionada automaticamente na marca de saída.
-5. **Atrito Linear do Feltro e Tabelas**: Todas as bolas ativas sofrem desaceleração gradual exponencial compatível com o delta time e rebatem elasticamente nas 4 tabelas de madeira.
-6. **Projeção Isotrópica Inteligente**: O vertex shader utiliza projeção bidimensional que adapta a escala dinamicamente ao aspecto da janela. A mesa nunca transborda (mesmo em janelas muito altas e estreitas) e as bolas mantêm circularidade absoluta sem distorção.
+1. **Multiplayer em Turnos & Cores de Taco por Jogador**:
+   - **Jogador 1 (Azul Safira)** e **Jogador 2 (Vermelho Rubi)** possuem cores exclusivas tanto no taco quanto na linha guia tracejada e na Ghost Ball, moduladas dinamicamente via `u_color` sem reescrever VBOs.
+   - Se o jogador da vez encaçapar ao menos uma bola válida sem cometer falta, **continua jogando**; caso não encaçape nenhuma bola ou cometa falta, **o turno passa para o adversário** assim que todas as bolas param.
+2. **Sistema de Pontuação de Sinuca & Placar no Título**:
+   - Cada bola numerada vale sua pontuação nominal (**1 a 15 pontos**).
+   - **Faltas** (encaçapar a bola branca ou encaçapar a Bola 8 antes de limpar a mesa) concedem **+4 pontos de penalidade** ao adversário, descontam 1 vida coletiva da mesa e passam a vez.
+   - O título da janela exibe em tempo real o turno ativo, os pontos e bolas encaçapadas de cada jogador (`Placar: P1 X pts (N) x P2 Y pts (M)`), o estado da partida, V-Sync e FPS.
+3. **Sub-stepping Temporal Anti-Tunelamento**: O intervalo $\Delta t$ (limitado a `MAX_DT = 0.05s`) é subdividido dinamicamente em 4 a 16 sub-passos por quadro, garantindo que nenhuma bola percorra mais que $0.45 R$ por sub-passo e eliminando tunelamento em altas velocidades.
+4. **Raycast Analítico de Mira & Ghost Ball**: Calcula em tempo real a interseção da trajetória da bola branca com a bola ou tabela mais próxima, desenhando uma **Ghost Ball pulsante** (`moderngl.LINE_LOOP`) no ponto exato do impacto e a linha de deflexão da bola alvo (`moderngl.LINES`).
+5. **HUD Geométrico Multiplayer na Cena**: Placar superior dividido entre **P1 (esquerda)** e **P2 (direita)** com emblema colorido de cada jogador, anel pulsante indicando de quem é a vez, slots das bolas encaçapadas por cada jogador (`TRIANGLE_FAN` / `LINE_LOOP`), medidor de potência de 10 níveis (`TRIANGLES`) e 3 indicadores de vida no topo direito.
+6. **Reaproveitamento Estrito de VBOs Estáticos**: Todos os 7 VBOs são alocados uma única vez na inicialização (`setup_graphics`), e todas as transformações (recuo do taco, comprimento da mira e cor do taco por jogador) são feitas via variáveis `uniform` no shader.
 
 ---
 
 ## 📁 Estrutura do Projeto
 
-- `main.py`: Ponto de entrada, loop principal, pooling de eventos contínuos e troca de buffers.
-- `graphics.py`: Compilação de shaders, inicialização de geometria (VAO/VBO/EBO) de múltiplas primitivas (tabelas, feltro, caçapas, bolas, taco cônico e linha de mira tracejada).
-- `gameplay.py`: Estado das 16 bolas, rotação da mira (ágil e precisão), dosagem de força, atrito do feltro, rebotes e caçapas.
-- `physics.py`: Motor de física 2D (colisões elásticas entre bolas com conservação de momento linear, rebote nas tabelas da mesa e detecção de encaçapamento).
-- `window.py`: Inicialização da janela GLFW, callbacks de teclado e redimensionamento de viewport.
-- `environment.py`: Utilitário universal de runtime (compilação segura, observer de hot-reload, projeção isotrópica e limpeza determinística).
-- `shaders/shader.vert`: Vertex shader com rotação 2D na GPU e projeção bidimensional.
-- `shaders/shader.frag`: Fragment shader com atenuação de iluminação para alternância dia/noite.
-- `Makefile`: Orquestrador de compilação, execução, testes e análise estática de código.
+- `main.py`: Ponto de entrada, loop principal com controle de $\Delta t$, placar multiplayer no título da janela, FPS, V-Sync e callbacks de teclado.
+- `graphics.py`: Compilação de shaders, VBOs/EBOs/VAOs estáticos de 5 primitivas (`TRIANGLES`, `TRIANGLE_FAN`, `LINE_STRIP`, `LINE_LOOP`, `LINES`), cores de taco por jogador e renderização do HUD multiplayer.
+- `gameplay.py`: Máquina de estados, regras de turnos (P1 vs P2), pontuação de sinuca (+4 pts por falta), sub-stepping temporal e controle de mira/força.
+- `physics.py`: Motor de física 2D (colisões elásticas bola-bola, rebote nas tabelas com abertura nas caçapas, captura radial e raycast analítico da Ghost Ball).
+- `window.py`: Inicialização da janela GLFW, callbacks de teclado, hot-reload (`F4`) e redimensionamento de viewport.
+- `environment.py`: Utilitários de plataforma (XCURSOR e ícones no Wayland/X11).
+- `shaders/shader.vert` & `shaders/shader.frag`: Shaders GLSL `#version 400 core`.
+- `Makefile`: Orquestrador de execução, testes unitários e análise estática.
 
 ---
 
 ## 🚀 Como Executar
 
-### Pré-requisitos & Ambiente Automático (`uv`)
-
-O ambiente é gerenciado pelo **`uv`** com o mecanismo `--system-site-packages` (dispensando ativação manual com `source`):
-
 ```bash
-uv venv --system-site-packages && uv sync
-```
-
-### Modos de Execução
-
-Você pode executar o jogo tanto pelo Makefile (que chama o `uv run` automaticamente) quanto diretamente via Python.
-
-#### Modo Debug (Padrão — Hot-Reload Ativo)
-
-Executa o jogo em modo de desenvolvimento. Pressione **`F4`** durante a partida para recompilar shaders em tempo real sem reiniciar a aplicação ou fechar a janela:
-
-Pelo Makefile:
-```bash
-make run
-```
-
-Direto via Python:
-```bash
-python3 main.py
-```
-
-#### Modo Release (Otimizado — Hot-Reload Desativado)
-
-Executa o jogo em modo de produção focado em máxima performance e estabilidade, com o listener de hot-reload desativado:
-
-Pelo Makefile:
-```bash
-make release
-```
-
-Direto via Python:
-```bash
-python3 main.py --release
-```
-
----
-
-## 🧪 Testes e Verificação de Qualidade
-
-### Testes Unitários de Módulos
-
-Valida geometria computacional, física elástica, compilação de shaders e estado do jogo:
-
-```bash
-make test
-```
-
-### Verificação Estática de Tipagem e Sintaxe
-
-Executa checagem estática de tipos com **Pyright** e análise de código com **Ruff**:
-
-```bash
-make check
-```
-
-Alias:
-```bash
-make lint
-```
-
-### Limpeza de Caches Temporários
-
-Remove recursivamente pastas `__pycache__` e arquivos `*.pyc`:
-
-```bash
-make clean
+make run        # Modo Debug (Hot-Reload F4 ativo)
+make release    # Modo Release (--release)
+make test       # Executa suíte de testes unitários de todos os módulos
+make check      # Executa verificação estática (Ruff + Pyright)
+make clean      # Remove caches temporários
 ```
