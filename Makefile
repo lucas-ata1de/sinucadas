@@ -4,10 +4,10 @@
 MAKEFLAGS += --no-print-directory -s
 
 # ----------------------------------------------------------------
-# Makefile: Sinucadas (Atividade 02 — OpenGL 4.0 Core)
+# ENVIRONMENT & TOOLCHAIN CONFIGURATION
 # ----------------------------------------------------------------
 
-PYTHON = $(shell which uv > "/dev/null" 2>&1 && echo "uv run --quiet python -B" || echo "python3 -B")
+PYTHON != which uv > "/dev/null" 2>&1 && echo "uv run --quiet python -B" || echo "python3 -B"
 export PYTHONDONTWRITEBYTECODE = 1
 export RUFF_CACHE_DIR = /tmp/ruff-cache
 
