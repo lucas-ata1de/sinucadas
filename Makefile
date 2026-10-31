@@ -11,7 +11,7 @@ PYTHON != which uv > "/dev/null" 2>&1 && echo "uv run --quiet python -B" || echo
 export PYTHONDONTWRITEBYTECODE = 1
 export RUFF_CACHE_DIR = /tmp/ruff-cache
 
-.PHONY: all run debug release test check lint clean help
+.PHONY: all run debug release test check lint clean purge help
 
 all: run
 
@@ -34,6 +34,7 @@ help:
 	cmd "lint"           "Alias for 'make check'"; \
 	sec "Maintenance & Cleanup:"; \
 	cmd "clean"          "Recursively removes temporary caches (__pycache__, *.pyc)"; \
+	cmd "purge"          "Removes virtual environments (.venv), caches and residues (OneDrive)"; \
 	echo ""
 
 ### ================================
@@ -89,8 +90,15 @@ lint: check
 ### ================================
 
 clean:
-	echo "🧹 Cleaning temporary caches (__pycache__, *.pyc, .ruff_cache)..."
+	echo "🧹 Cleaning temporary caches (__pycache__, *.pyc, .ruff_cache, .pytest_cache, .mypy_cache)..."
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2> "/dev/null" || true
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2> "/dev/null" || true
+	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2> "/dev/null" || true
+	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2> "/dev/null" || true
 	find . -type f -name "*.pyc" -delete 2> "/dev/null" || true
 	echo "✅ Caches cleaned successfully!"
+
+purge: clean
+	echo "🗑️  Purging virtual environments, caches, and repository residues..."
+	rm -rf .venv env .conda .git 2> "/dev/null" || true
+	echo "✅ Virtual environments and build artifacts purged successfully!"

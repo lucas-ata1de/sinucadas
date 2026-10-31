@@ -56,6 +56,58 @@ O jogo conta com modo **Multiplayer Local (Jogador 1 Azul vs Jogador 2 Vermelho)
 
 ---
 
+## 🛠️ Setup do Ambiente Virtual
+
+Para preparar e isolar o ambiente Python em qualquer sistema operacional, utilize o gerenciador de sua escolha (`conda`, `venv` nativo ou `uv`):
+
+### Windows
+
+#### Conda
+```pwsh
+conda create -n cgcourse python=3.11
+conda activate cgcourse
+pip install glfw moderngl numpy pyglm pillow
+```
+
+#### venv
+```pwsh
+python3.11 -m venv .venv
+.venv\Scripts\activate
+pip install glfw moderngl numpy pyglm pillow
+```
+
+#### uv
+```pwsh
+uv venv --python 3.11
+.venv\Scripts\activate
+uv pip install glfw moderngl numpy pyglm pillow
+```
+
+### Linux / BSD
+
+#### Conda
+```sh
+conda create -n cgcourse python=3.11
+conda activate cgcourse
+pip install glfw moderngl numpy pyglm pillow
+```
+
+#### venv
+```sh
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install glfw moderngl numpy pyglm pillow
+```
+
+#### uv
+```sh
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install glfw moderngl numpy pyglm pillow
+```
+
+---
+
 ## 🚀 Como Executar
 
 ```bash
@@ -63,5 +115,21 @@ make run        # Modo Debug (Hot-Reload F4 ativo)
 make release    # Modo Release (--release)
 make test       # Executa suíte de testes unitários de todos os módulos
 make check      # Executa verificação estática (Ruff + Pyright)
-make clean      # Remove caches temporários
+make clean      # Remove caches temporários (__pycache__, *.pyc, .ruff_cache)
+make purge      # Remove ambientes virtuais (.venv), caches e arquivos temporários
 ```
+
+---
+
+## 🧼 Diretrizes de Clean Code & Boas Práticas
+
+Todos os módulos do jogo atendem às boas práticas de engenharia e Clean Code:
+
+1. **Proibição Estrita de Números Mágicos (`Magic Numbers`):** Valores literais arbitrários no fluxo lógico foram completamente substituídos por constantes semânticas explícitas no topo de cada módulo (`PROJECTION_MARGIN = 0.96`, `BALL_RADIUS = 0.032`, `TABLE_BOUNDS = (0.90, 0.45)`, `CUSHION_RESTITUTION = 0.85`, `BALL_RESTITUTION = 0.96`, `ROLLING_FRICTION_BASE = 0.985`, `REFERENCE_FPS = 60.0`, `MAX_DT = 0.05`, etc.).
+2. **Padronização de Proporções e Margens:** A projeção isotrópica adota `PROJECTION_MARGIN = 0.96`, assegurando proporção 1:1 rigorosa sem distorção das esferas e acomodando o HUD superior/inferior.
+3. **Nomenclatura Descritiva e Tipagem Estrita:**
+   - Funções e variáveis em `snake_case`.
+   - Classes em `PascalCase`.
+   - Constantes globais em `UPPER_SNAKE_CASE`.
+   - Shaders com prefixos padronizados (`v_position`, `v_color`, `u_offset`, `u_scale`, `u_angle`, `u_color`, `u_proj`, `u_attenuation`, `v2f_color`, `frag_color`).
+4. **Modularidade e Separação de Responsabilidades:** Separação estrita entre física analítica (`physics.py`), máquina de estados e regras (`gameplay.py`), buffers e pipeline GPU (`graphics.py`), ciclo de vida GLFW (`window.py`) e plataforma (`environment.py`).

@@ -9,6 +9,19 @@ com funil gravitacional nas bordas e raycast analítico de mira (Ghost Ball).
 from collections.abc import Sequence
 from math import cos, sin, sqrt
 
+DEFAULT_TABLE_BOUNDS: tuple[float, float] = (0.90, 0.45)
+DEFAULT_BALL_RESTITUTION: float = 0.96
+DEFAULT_CUSHION_RESTITUTION: float = 0.85
+DEFAULT_POCKET_RADIUS: float = 0.055
+
+POCKET_CAPTURE_RATIO: float = 0.92
+POCKET_RIM_RATIO: float = 1.35
+POCKET_GRAVITY_PULL: float = 1.8
+POCKET_MOUTH_CLEARANCE: float = 1.15
+POCKET_OUTER_RATIO: float = 0.5
+POCKET_CUSHION_RESTITUTION_FACTOR: float = 0.6
+RAYCAST_MAX_DISTANCE: float = 1.90
+
 
 def dot_2d(v1: Sequence[float], v2: Sequence[float]) -> float:
     """Calcula o produto escalar entre dois vetores bidimensionais."""
@@ -59,7 +72,7 @@ def resolve_elastic_collision(
     pos_b: list[float],
     vel_b: list[float],
     radius: float,
-    restitution: float = 0.96,
+    restitution: float = DEFAULT_BALL_RESTITUTION,
 ) -> bool:
     """Resolve a sobreposição geométrica e a troca de momento linear elástico entre duas bolas."""
     delta, dist_sq = displacement(pos_a, pos_b)
@@ -100,8 +113,8 @@ def check_pocket_fall(
     dt: float = 0.0,
 ) -> bool:
     """Verifica captura pela caçapa e aplica leve atração radial na borda da boca."""
-    capture_limit_sq = (pocket_radius * 0.92) ** 2
-    rim_limit_sq = (pocket_radius * 1.35) ** 2
+    capture_limit_sq = (pocket_radius * POCKET_CAPTURE_RATIO) ** 2
+    rim_limit_sq = (pocket_radius * POCKET_RIM_RATIO) ** 2
 
     for pocket in pockets:
         delta, dist_sq = displacement(ball_pos, pocket)
@@ -109,7 +122,7 @@ def check_pocket_fall(
             return True
         if ball_vel is not None and dt > 0.0 and dist_sq < rim_limit_sq and dist_sq > 1e-9:
             dist = sqrt(dist_sq)
-            pull = 1.8 * dt
+            pull = POCKET_GRAVITY_PULL * dt
             ball_vel[0] += (delta[0] / dist) * pull
             ball_vel[1] += (delta[1] / dist) * pull
 
@@ -120,17 +133,23 @@ def resolve_cushion_bounce(
     pos: list[float],
     vel: list[float],
     radius: float,
-    half_bounds: Sequence[float] = (0.90, 0.45),
-    restitution: float = 0.85,
+    half_bounds: Sequence[float] = DEFAULT_TABLE_BOUNDS,
+    restitution: float = DEFAULT_CUSHION_RESTITUTION,
     pockets: tuple[tuple[float, float], ...] | None = None,
-    pocket_radius: float = 0.055,
+    pocket_radius: float = DEFAULT_POCKET_RADIUS,
 ) -> bool:
     """Aplica o rebote elástico da bola nas 4 tabelas, respeitando a abertura das caçapas."""
-    if pockets is not None and _is_near_pocket_mouth(pos, pockets, pocket_radius * 1.15):
-        outer_x = half_bounds[0] + pocket_radius * 0.5
-        outer_y = half_bounds[1] + pocket_radius * 0.5
-        bx = _bounce_1d(pos, vel, 0, (-outer_x, outer_x), restitution * 0.6)
-        by = _bounce_1d(pos, vel, 1, (-outer_y, outer_y), restitution * 0.6)
+    if pockets is not None and _is_near_pocket_mouth(
+        pos, pockets, pocket_radius * POCKET_MOUTH_CLEARANCE
+    ):
+        outer_x = half_bounds[0] + pocket_radius * POCKET_OUTER_RATIO
+        outer_y = half_bounds[1] + pocket_radius * POCKET_OUTER_RATIO
+        bx = _bounce_1d(
+            pos, vel, 0, (-outer_x, outer_x), restitution * POCKET_CUSHION_RESTITUTION_FACTOR
+        )
+        by = _bounce_1d(
+            pos, vel, 1, (-outer_y, outer_y), restitution * POCKET_CUSHION_RESTITUTION_FACTOR
+        )
         return bx or by
 
     bounced_x = _bounce_1d(
@@ -147,8 +166,8 @@ def compute_aim_raycast(
     angle: float,
     balls: Sequence[dict[str, object]],
     radius: float,
-    half_bounds: Sequence[float] = (0.90, 0.45),
-    max_length: float = 1.90,
+    half_bounds: Sequence[float] = DEFAULT_TABLE_BOUNDS,
+    max_length: float = RAYCAST_MAX_DISTANCE,
 ) -> dict[str, object]:
     """Calcula analiticamente o ponto de impacto da bola branca (Ghost Ball) contra bolas ou tabelas."""
     dx = cos(angle)

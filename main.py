@@ -54,6 +54,8 @@ from window import init_window, register_hot_reload, release_resource, update_ti
 
 MAX_DT = 0.05
 PLAYER_LABELS = ("P1 Azul", "P2 Vermelho")
+DEFAULT_WINDOW_SIZE: tuple[int, int] = (960, 680)
+FPS_UPDATE_INTERVAL: float = 0.25
 
 
 def _print_banner(is_release: bool) -> None:
@@ -223,7 +225,7 @@ def _run_game_loop(
         glfw.poll_events()
 
         frame_count += 1
-        if now - fps_timer >= 0.25:
+        if now - fps_timer >= FPS_UPDATE_INTERVAL:
             fps = frame_count / (now - fps_timer)
             glfw.set_window_title(
                 window,
@@ -246,7 +248,7 @@ def main() -> None:
     key_callback = _create_key_callback(cue, balls, visual_state, game_state)
     mode_name = "Release" if is_release else "Debug"
     window, ctx = init_window(
-        size=(960, 680),
+        size=DEFAULT_WINDOW_SIZE,
         title=f"Sinucadas [{mode_name}]",
         enable_hot_reload=not is_release,
         user_key_callback=key_callback,

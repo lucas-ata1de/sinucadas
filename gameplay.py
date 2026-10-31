@@ -25,6 +25,32 @@ MAX_LIVES = 3
 TOTAL_OBJECT_BALLS = 15
 FOUL_PENALTY_POINTS = 4
 
+TABLE_BOUNDS: tuple[float, float] = (0.90, 0.45)
+CUSHION_RESTITUTION: float = 0.85
+BALL_RESTITUTION: float = 0.96
+VELOCITY_STOP_EPSILON_SQ: float = 1e-4
+ROLLING_FRICTION_BASE: float = 0.985
+REFERENCE_FPS: float = 60.0
+
+ROTATION_SPEED_NORMAL: float = 1.75
+ROTATION_SPEED_PRECISION: float = 0.35
+POWER_SPEED_NORMAL: float = 0.65
+POWER_SPEED_PRECISION: float = 0.15
+CUE_POWER_MIN: float = 0.0
+CUE_POWER_MAX: float = 1.0
+
+SHOT_FORCE_BASE: float = 0.35
+SHOT_FORCE_SCALE: float = 2.35
+
+SUBSTEP_SAFE_RATIO: float = 0.45
+SUBSTEP_MIN: int = 4
+SUBSTEP_MAX: int = 16
+
+CUE_BALL_INITIAL_POS: tuple[float, float] = (-0.45, 0.0)
+RACK_ORIGIN_X: float = 0.30
+RACK_DX_FACTOR: float = 0.866
+RACK_DY_FACTOR: float = 1.02
+
 STATE_START = "START"
 STATE_PLAYING = "PLAYING"
 STATE_PAUSED = "PAUSED"
@@ -115,21 +141,21 @@ def _update_cue_angle(cue: dict[str, Any], window: Any, dt: float) -> bool:
         glfw.get_key(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS
         or glfw.get_key(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
     )
-    speed = 0.35 if is_precision else 1.75
+    speed = ROTATION_SPEED_PRECISION if is_precision else ROTATION_SPEED_NORMAL
     changed = False
 
     if glfw.get_key(window, glfw.KEY_LEFT) == glfw.PRESS:
         cue["angle"] += speed * dt
         changed = True
     elif glfw.get_key(window, glfw.KEY_A) == glfw.PRESS:
-        cue["angle"] += 0.35 * dt
+        cue["angle"] += ROTATION_SPEED_PRECISION * dt
         changed = True
 
     if glfw.get_key(window, glfw.KEY_RIGHT) == glfw.PRESS:
         cue["angle"] -= speed * dt
         changed = True
     elif glfw.get_key(window, glfw.KEY_D) == glfw.PRESS:
-        cue["angle"] -= 0.35 * dt
+        cue["angle"] -= ROTATION_SPEED_PRECISION * dt
         changed = True
 
     return changed
@@ -141,21 +167,21 @@ def _update_cue_power(cue: dict[str, Any], window: Any, dt: float) -> bool:
         glfw.get_key(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS
         or glfw.get_key(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
     )
-    speed = 0.15 if is_precision else 0.65
+    speed = POWER_SPEED_PRECISION if is_precision else POWER_SPEED_NORMAL
     changed = False
 
     if glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS:
-        cue["power"] = min(1.0, cue["power"] + speed * dt)
+        cue["power"] = min(CUE_POWER_MAX, cue["power"] + speed * dt)
         changed = True
     elif glfw.get_key(window, glfw.KEY_W) == glfw.PRESS:
-        cue["power"] = min(1.0, cue["power"] + 0.15 * dt)
+        cue["power"] = min(CUE_POWER_MAX, cue["power"] + POWER_SPEED_PRECISION * dt)
         changed = True
 
     if glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS:
-        cue["power"] = max(0.0, cue["power"] - speed * dt)
+        cue["power"] = max(CUE_POWER_MIN, cue["power"] - speed * dt)
         changed = True
     elif glfw.get_key(window, glfw.KEY_S) == glfw.PRESS:
-        cue["power"] = max(0.0, cue["power"] - 0.15 * dt)
+        cue["power"] = max(CUE_POWER_MIN, cue["power"] - POWER_SPEED_PRECISION * dt)
         changed = True
 
     return changed
@@ -198,7 +224,7 @@ def shoot_cue_ball(
         return False
 
     power = cue.get("power", 0.0)
-    force = 0.35 + power * 2.35
+    force = SHOT_FORCE_BASE + power * SHOT_FORCE_SCALE
     angle = cue.get("angle", 0.0)
 
     balls[0]["vel"] = [force * cos(angle), force * sin(angle)]
@@ -218,7 +244,7 @@ def _create_cue_ball() -> dict[str, Any]:
     return {
         "id": 0,
         "points": 0,
-        "pos": [-0.45, 0.0],
+        "pos": list(CUE_BALL_INITIAL_POS),
         "vel": [0.0, 0.0],
         "color": CUE_BALL_COLOR,
         "pocketed": False,
@@ -229,10 +255,10 @@ def _create_cue_ball() -> dict[str, Any]:
 def _create_triangle_balls() -> list[dict[str, Any]]:
     """Gera o triângulo padrão de 15 bolas no foot spot com a bola 8 no centro."""
     balls: list[dict[str, Any]] = []
-    x0 = 0.30
+    x0 = RACK_ORIGIN_X
     diameter = BALL_RADIUS * 2.0
-    dx = diameter * 0.866
-    dy = diameter * 1.02
+    dx = diameter * RACK_DX_FACTOR
+    dy = diameter * RACK_DY_FACTOR
 
     color_index = 0
     for col in range(5):
@@ -417,8 +443,8 @@ def _compute_substeps(balls: list[dict[str, Any]], dt: float) -> int:
     if max_speed_sq <= 0.0 or dt <= 0.0:
         return 1
     max_disp = sqrt(max_speed_sq) * dt
-    safe_step = BALL_RADIUS * 0.45
-    return max(4, min(16, int(ceil(max_disp / safe_step))))
+    safe_step = BALL_RADIUS * SUBSTEP_SAFE_RATIO
+    return max(SUBSTEP_MIN, min(SUBSTEP_MAX, int(ceil(max_disp / safe_step))))
 
 
 def _step_ball_kinematics(
@@ -444,8 +470,8 @@ def _step_ball_kinematics(
             ball["pos"],
             ball["vel"],
             BALL_RADIUS,
-            (0.90, 0.45),
-            restitution=0.85,
+            TABLE_BOUNDS,
+            restitution=CUSHION_RESTITUTION,
             pockets=pockets,
             pocket_radius=pocket_radius,
         )
@@ -463,7 +489,7 @@ def _resolve_all_ball_collisions(active_balls: list[dict[str, Any]], passes: int
                     active_balls[j]["pos"],
                     active_balls[j]["vel"],
                     BALL_RADIUS,
-                    restitution=0.96,
+                    restitution=BALL_RESTITUTION,
                 )
 
 
@@ -473,7 +499,7 @@ def _apply_friction_and_drag(active_balls: list[dict[str, Any]], friction: float
         ball["vel"][0] *= friction
         ball["vel"][1] *= friction
 
-        if dot_2d(ball["vel"], ball["vel"]) < 0.0001:
+        if dot_2d(ball["vel"], ball["vel"]) < VELOCITY_STOP_EPSILON_SQ:
             ball["vel"] = [0.0, 0.0]
 
 
@@ -534,7 +560,7 @@ def update_gameplay(
 
     substeps = _compute_substeps(balls, dt)
     sub_dt = dt / substeps
-    friction = 0.985 ** (dt * 60.0)
+    friction = ROLLING_FRICTION_BASE ** (dt * REFERENCE_FPS)
 
     for _ in range(substeps):
         _step_ball_kinematics(balls, pockets, pocket_radius, sub_dt, game_state)

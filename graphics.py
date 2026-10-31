@@ -66,6 +66,55 @@ def _set_uniform(prog: moderngl.Program, name: str, value: Any) -> None:
 
 SHADERS_DIR = Path(__file__).parent / "shaders"
 
+PROJECTION_MARGIN: float = 0.96
+MAX_PROJECTION_ASPECT: float = 1.42
+
+DAY_BG_COLOR = (0.82, 0.82, 0.85, 1.0)
+NIGHT_BG_COLOR = (0.05, 0.05, 0.08, 1.0)
+DAY_ATTENUATION = 1.0
+NIGHT_ATTENUATION = 0.40
+
+BAULK_LINE_X = -0.45
+BAULK_D_RADIUS = 0.18
+BAULK_D_SEGMENTS = 24
+
+AIM_LINE_DEFAULT_LENGTH = 1.0
+AIM_LINE_DEFAULT_DASHES = 12
+AIM_LINE_DASH_RATIO = 1.6
+AIM_LINE_GAP_RATIO = 0.6
+AIM_LINE_BASE_COLOR = (1.0, 1.0, 1.0, 0.90)
+
+CUE_BASE_OFFSET = 0.025
+CUE_POWER_PULLBACK = 0.16
+CUE_LENGTH_MID = 0.22
+CUE_LENGTH_BASE = 0.50
+CUE_WIDTH_TIP = 0.005
+CUE_WIDTH_MID = 0.008
+CUE_WIDTH_BASE = 0.013
+
+CUE_COLOR_TIP = (1.00, 1.00, 1.00, 1.0)
+CUE_COLOR_MID = (0.88, 0.85, 0.80, 1.0)
+CUE_COLOR_BASE = (0.42, 0.40, 0.38, 1.0)
+
+GHOST_BALL_BASE_SCALE = 0.92
+GHOST_BALL_PULSE_SCALE = 0.16
+GHOST_TARGET_COLOR = (0.30, 1.00, 0.55, 1.0)
+DEFLECTION_LINE_SCALE = 0.14
+
+HUD_TOP_Y = 0.62
+HUD_BOTTOM_Y = -0.62
+HUD_BADGE_X = 0.92
+HUD_BADGE_RADIUS = 0.025
+HUD_SLOT_RADIUS = 0.017
+HUD_SLOT_STEP = 0.042
+HUD_SLOTS_PER_PLAYER = 8
+HUD_LIFE_RADIUS = 0.019
+HUD_LIFE_STEP = 0.052
+HUD_POWER_SEGMENTS = 10
+HUD_POWER_SEG_SIZE = 0.018
+HUD_POWER_START_X = 0.62
+HUD_POWER_STEP_X = 0.025
+
 TABLE_WIDTH = 0.90
 TABLE_HEIGHT = 0.45
 CUSHION_THICKNESS = 0.10
@@ -182,14 +231,14 @@ def create_table_geometry() -> tuple[np.ndarray, np.ndarray]:
 
 def create_table_lines() -> np.ndarray:
     """Gera a linha de saída e o semicírculo de baulk ('D' de sinuca) com primitiva de linha."""
-    x_baulk = -0.45
-    r_d = 0.18
+    x_baulk = BAULK_LINE_X
+    r_d = BAULK_D_RADIUS
     vertices = [
         [x_baulk, -TABLE_HEIGHT, 0.0, 1.0, *LINE_COLOR],
         [x_baulk, TABLE_HEIGHT, 0.0, 1.0, *LINE_COLOR],
     ]
 
-    segments = 24
+    segments = BAULK_D_SEGMENTS
     for i in range(segments + 1):
         angle = (pi / 2.0) + (pi * i) / segments
         x = x_baulk + r_d * cos(angle)
@@ -199,12 +248,14 @@ def create_table_lines() -> np.ndarray:
     return np.array(vertices, dtype="f4").ravel()
 
 
-def create_aim_line_geometry(length: float = 1.0, num_dashes: int = 12) -> np.ndarray:
+def create_aim_line_geometry(
+    length: float = AIM_LINE_DEFAULT_LENGTH, num_dashes: int = AIM_LINE_DEFAULT_DASHES
+) -> np.ndarray:
     """Gera segmentos tracejados normalizados (LINES) ao longo do eixo +X para escalonamento via uniform."""
     vertices: list[list[float]] = []
-    dash_len = length / (num_dashes * 1.6)
-    gap_len = dash_len * 0.6
-    aim_color = (1.0, 1.0, 1.0, 0.90)
+    dash_len = length / (num_dashes * AIM_LINE_DASH_RATIO)
+    gap_len = dash_len * AIM_LINE_GAP_RATIO
+    aim_color = AIM_LINE_BASE_COLOR
 
     x_cur = 0.0
     for _ in range(num_dashes):
@@ -218,17 +269,17 @@ def create_aim_line_geometry(length: float = 1.0, num_dashes: int = 12) -> np.nd
 
 def create_cue_geometry() -> tuple[np.ndarray, np.ndarray]:
     """Gera a malha cônica estática do taco em luminância neutra para modulação de cor por jogador."""
-    x_tip = -(BALL_RADIUS + 0.025)
-    x_mid = x_tip - 0.22
-    x_base = x_tip - 0.50
+    x_tip = -(BALL_RADIUS + CUE_BASE_OFFSET)
+    x_mid = x_tip - CUE_LENGTH_MID
+    x_base = x_tip - CUE_LENGTH_BASE
 
-    w_tip = 0.005
-    w_mid = 0.008
-    w_base = 0.013
+    w_tip = CUE_WIDTH_TIP
+    w_mid = CUE_WIDTH_MID
+    w_base = CUE_WIDTH_BASE
 
-    tip_color = (1.00, 1.00, 1.00, 1.0)
-    mid_color = (0.88, 0.85, 0.80, 1.0)
-    base_color = (0.42, 0.40, 0.38, 1.0)
+    tip_color = CUE_COLOR_TIP
+    mid_color = CUE_COLOR_MID
+    base_color = CUE_COLOR_BASE
 
     vertices = np.array(
         [
@@ -251,11 +302,19 @@ def create_cue_geometry() -> tuple[np.ndarray, np.ndarray]:
 
 def _create_vao(
     ctx: moderngl.Context, prog: moderngl.Program, verts: np.ndarray
-) -> tuple[moderngl.Buffer, moderngl.VertexArray]:
-    """Cria um VBO estático e um VAO de atributos pos+cor (4f 4f)."""
-    vbo = ctx.buffer(verts.tobytes())
-    vao = ctx.vertex_array(prog, [(vbo, "4f 4f", "v_position", "v_color")])
-    return vbo, vao
+) -> tuple[moderngl.Buffer, moderngl.Buffer, moderngl.VertexArray]:
+    """Cria VBOs estáticos separados para posições e cores (Múltiplos VBOs) e os conecta ao VAO."""
+    reshaped = verts.reshape(-1, 8)
+    pos_data = np.ascontiguousarray(reshaped[:, :4], dtype="f4")
+    color_data = np.ascontiguousarray(reshaped[:, 4:], dtype="f4")
+
+    vbo_pos = ctx.buffer(pos_data.tobytes())
+    vbo_color = ctx.buffer(color_data.tobytes())
+    vao = ctx.vertex_array(
+        prog,
+        [(vbo_pos, "4f", "v_position"), (vbo_color, "4f", "v_color")],
+    )
+    return vbo_pos, vbo_color, vao
 
 
 def _create_indexed_vao(
@@ -263,61 +322,90 @@ def _create_indexed_vao(
     prog: moderngl.Program,
     verts: np.ndarray,
     indices: np.ndarray,
-) -> tuple[moderngl.Buffer, moderngl.Buffer, moderngl.VertexArray]:
-    """Cria um VBO estático, um EBO e um VAO indexado de atributos pos+cor (4f 4f)."""
-    vbo = ctx.buffer(verts.tobytes())
+) -> tuple[moderngl.Buffer, moderngl.Buffer, moderngl.Buffer, moderngl.VertexArray]:
+    """Cria VBOs estáticos separados para posições e cores, um EBO e os conecta ao VAO indexado."""
+    reshaped = verts.reshape(-1, 8)
+    pos_data = np.ascontiguousarray(reshaped[:, :4], dtype="f4")
+    color_data = np.ascontiguousarray(reshaped[:, 4:], dtype="f4")
+
+    vbo_pos = ctx.buffer(pos_data.tobytes())
+    vbo_color = ctx.buffer(color_data.tobytes())
     ebo = ctx.buffer(indices.tobytes())
-    vao = ctx.vertex_array(prog, [(vbo, "4f 4f", "v_position", "v_color")], index_buffer=ebo)
-    return vbo, ebo, vao
+    vao = ctx.vertex_array(
+        prog,
+        [(vbo_pos, "4f", "v_position"), (vbo_color, "4f", "v_color")],
+        index_buffer=ebo,
+    )
+    return vbo_pos, vbo_color, ebo, vao
 
 
 def setup_graphics(ctx: moderngl.Context) -> dict[str, Any]:
-    """Compila os shaders e inicializa estaticamente todos os VBOs, EBOs e VAOs da cena."""
+    """Compila os shaders e inicializa estaticamente todos os VBOs separados, EBOs e VAOs da cena."""
     prog = create_program(ctx, SHADERS_DIR / "shader.vert", SHADERS_DIR / "shader.frag")
 
     table_verts, table_indices = create_table_geometry()
-    vbo_table, ebo_table, vao_table = _create_indexed_vao(ctx, prog, table_verts, table_indices)
+    vbo_table_pos, vbo_table_color, ebo_table, vao_table = _create_indexed_vao(
+        ctx, prog, table_verts, table_indices
+    )
 
     circle_verts = create_circle_geometry()
-    vbo_circle, vao_circle = _create_vao(ctx, prog, circle_verts)
+    vbo_circle_pos, vbo_circle_color, vao_circle = _create_vao(ctx, prog, circle_verts)
 
     ring_verts = create_ring_geometry()
-    vbo_ring, vao_ring = _create_vao(ctx, prog, ring_verts)
+    vbo_ring_pos, vbo_ring_color, vao_ring = _create_vao(ctx, prog, ring_verts)
 
     quad_verts, quad_indices = create_unit_quad_geometry()
-    vbo_quad, ebo_quad, vao_quad = _create_indexed_vao(ctx, prog, quad_verts, quad_indices)
+    vbo_quad_pos, vbo_quad_color, ebo_quad, vao_quad = _create_indexed_vao(
+        ctx, prog, quad_verts, quad_indices
+    )
 
     line_verts = create_table_lines()
-    vbo_lines, vao_lines = _create_vao(ctx, prog, line_verts)
+    vbo_lines_pos, vbo_lines_color, vao_lines = _create_vao(ctx, prog, line_verts)
 
     aim_verts = create_aim_line_geometry()
-    vbo_aim, vao_aim = _create_vao(ctx, prog, aim_verts)
+    vbo_aim_pos, vbo_aim_color, vao_aim = _create_vao(ctx, prog, aim_verts)
 
     cue_verts, cue_indices = create_cue_geometry()
-    vbo_cue, ebo_cue, vao_cue = _create_indexed_vao(ctx, prog, cue_verts, cue_indices)
+    vbo_cue_pos, vbo_cue_color, ebo_cue, vao_cue = _create_indexed_vao(
+        ctx, prog, cue_verts, cue_indices
+    )
 
     return {
         "prog": prog,
         "vao_table": vao_table,
-        "vbo_table": vbo_table,
+        "vbo_table_pos": vbo_table_pos,
+        "vbo_table_color": vbo_table_color,
+        "vbo_table": vbo_table_pos,
         "ebo_table": ebo_table,
         "vao_circle": vao_circle,
-        "vbo_circle": vbo_circle,
+        "vbo_circle_pos": vbo_circle_pos,
+        "vbo_circle_color": vbo_circle_color,
+        "vbo_circle": vbo_circle_pos,
         "circle_count": len(circle_verts) // 8,
         "vao_ring": vao_ring,
-        "vbo_ring": vbo_ring,
+        "vbo_ring_pos": vbo_ring_pos,
+        "vbo_ring_color": vbo_ring_color,
+        "vbo_ring": vbo_ring_pos,
         "ring_count": len(ring_verts) // 8,
         "vao_quad": vao_quad,
-        "vbo_quad": vbo_quad,
+        "vbo_quad_pos": vbo_quad_pos,
+        "vbo_quad_color": vbo_quad_color,
+        "vbo_quad": vbo_quad_pos,
         "ebo_quad": ebo_quad,
         "vao_lines": vao_lines,
-        "vbo_lines": vbo_lines,
+        "vbo_lines_pos": vbo_lines_pos,
+        "vbo_lines_color": vbo_lines_color,
+        "vbo_lines": vbo_lines_pos,
         "line_count": len(line_verts) // 8,
         "vao_aim": vao_aim,
-        "vbo_aim": vbo_aim,
+        "vbo_aim_pos": vbo_aim_pos,
+        "vbo_aim_color": vbo_aim_color,
+        "vbo_aim": vbo_aim_pos,
         "aim_count": len(aim_verts) // 8,
         "vao_cue": vao_cue,
-        "vbo_cue": vbo_cue,
+        "vbo_cue_pos": vbo_cue_pos,
+        "vbo_cue_color": vbo_cue_color,
+        "vbo_cue": vbo_cue_pos,
         "ebo_cue": ebo_cue,
     }
 
@@ -408,7 +496,7 @@ def _draw_cue_and_aim(
     _set_uniform(prog, "u_color", aim_color)
     pipeline["vao_aim"].render(moderngl.LINES, vertices=pipeline["aim_count"])
 
-    pullback = power * 0.16
+    pullback = power * CUE_POWER_PULLBACK
     cue_offset = (
         cue_ball_pos[0] - dir_x * pullback,
         cue_ball_pos[1] - dir_y * pullback,
@@ -421,9 +509,9 @@ def _draw_cue_and_aim(
     ghost_pos = cue.get("ghost_pos")
     if isinstance(ghost_pos, (tuple, list)) and len(ghost_pos) == 2:
         pulse = 0.5 + 0.5 * sin(anim_time * 6.0)
-        ghost_scale = BALL_RADIUS * (0.92 + 0.16 * pulse)
+        ghost_scale = BALL_RADIUS * (GHOST_BALL_BASE_SCALE + GHOST_BALL_PULSE_SCALE * pulse)
         has_target = cue.get("hit_normal") is not None
-        ghost_color = (0.30, 1.0, 0.55, 1.0) if has_target else aim_color
+        ghost_color = GHOST_TARGET_COLOR if has_target else aim_color
         _set_uniform(prog, "u_angle", 0.0)
         _set_uniform(prog, "u_offset", (float(ghost_pos[0]), float(ghost_pos[1])))
         _set_uniform(prog, "u_scale", ghost_scale)
@@ -435,8 +523,8 @@ def _draw_cue_and_aim(
             norm_angle = atan2(float(hit_normal[1]), float(hit_normal[0]))
             _set_uniform(prog, "u_angle", norm_angle)
             _set_uniform(prog, "u_offset", (float(ghost_pos[0]), float(ghost_pos[1])))
-            _set_uniform(prog, "u_scale", 0.14)
-            _set_uniform(prog, "u_color", (0.30, 1.0, 0.55, 1.0))
+            _set_uniform(prog, "u_scale", DEFLECTION_LINE_SCALE)
+            _set_uniform(prog, "u_color", GHOST_TARGET_COLOR)
             pipeline["vao_aim"].render(moderngl.LINES, vertices=pipeline["aim_count"])
 
     _set_uniform(prog, "u_angle", 0.0)
@@ -456,10 +544,10 @@ def _draw_hud(
     ring_count = pipeline["ring_count"]
     vao_quad = pipeline["vao_quad"]
 
-    hud_y = 0.62
-    bottom_y = -0.62
-    slot_radius = 0.017
-    slot_step = 0.042
+    hud_y = HUD_TOP_Y
+    bottom_y = HUD_BOTTOM_Y
+    slot_radius = HUD_SLOT_RADIUS
+    slot_step = HUD_SLOT_STEP
     cur_player = int(game_state.get("current_player", 1))
     pulse = 0.5 + 0.5 * sin(anim_time * 5.0)
     player_racks: list[list[tuple[float, ...]]] = game_state.get(
@@ -468,9 +556,9 @@ def _draw_hud(
 
     _set_uniform(prog, "u_angle", 0.0)
 
-    p1_badge_pos = (-0.92, hud_y)
+    p1_badge_pos = (-HUD_BADGE_X, hud_y)
     _set_uniform(prog, "u_offset", p1_badge_pos)
-    _set_uniform(prog, "u_scale", 0.025)
+    _set_uniform(prog, "u_scale", HUD_BADGE_RADIUS)
     _set_uniform(prog, "u_color", PLAYER_CUE_COLORS[0])
     vao_circle.render(moderngl.TRIANGLE_FAN, vertices=circle_count)
     if cur_player == 1:
@@ -478,7 +566,7 @@ def _draw_hud(
         _set_uniform(prog, "u_color", (1.0, 1.0, 1.0, 1.0))
         vao_ring.render(moderngl.LINE_LOOP, vertices=ring_count)
 
-    for i in range(8):
+    for i in range(HUD_SLOTS_PER_PLAYER):
         pos = (-0.84 + i * slot_step, hud_y)
         _set_uniform(prog, "u_offset", pos)
         if i < len(player_racks[0]):
@@ -490,9 +578,9 @@ def _draw_hud(
             _set_uniform(prog, "u_color", (0.40, 0.55, 0.72, 0.65))
             vao_ring.render(moderngl.LINE_LOOP, vertices=ring_count)
 
-    p2_badge_pos = (0.92, hud_y)
+    p2_badge_pos = (HUD_BADGE_X, hud_y)
     _set_uniform(prog, "u_offset", p2_badge_pos)
-    _set_uniform(prog, "u_scale", 0.025)
+    _set_uniform(prog, "u_scale", HUD_BADGE_RADIUS)
     _set_uniform(prog, "u_color", PLAYER_CUE_COLORS[1])
     vao_circle.render(moderngl.TRIANGLE_FAN, vertices=circle_count)
     if cur_player == 2:
@@ -500,7 +588,7 @@ def _draw_hud(
         _set_uniform(prog, "u_color", (1.0, 1.0, 1.0, 1.0))
         vao_ring.render(moderngl.LINE_LOOP, vertices=ring_count)
 
-    for i in range(8):
+    for i in range(HUD_SLOTS_PER_PLAYER):
         pos = (0.84 - i * slot_step, hud_y)
         _set_uniform(prog, "u_offset", pos)
         if i < len(player_racks[1]):
@@ -513,9 +601,9 @@ def _draw_hud(
             vao_ring.render(moderngl.LINE_LOOP, vertices=ring_count)
 
     lives = int(game_state.get("lives", 3))
-    life_radius = 0.019
+    life_radius = HUD_LIFE_RADIUS
     for i in range(3):
-        pos = (-0.86 + i * 0.052, bottom_y)
+        pos = (-0.86 + i * HUD_LIFE_STEP, bottom_y)
         _set_uniform(prog, "u_offset", pos)
         if i < lives:
             _set_uniform(prog, "u_scale", life_radius)
@@ -527,12 +615,12 @@ def _draw_hud(
             vao_ring.render(moderngl.LINE_LOOP, vertices=ring_count)
 
     power = float(cue.get("power", 0.0)) if cue else 0.0
-    bar_segments = 10
-    seg_size = 0.018
-    bar_start_x = 0.62
+    bar_segments = HUD_POWER_SEGMENTS
+    seg_size = HUD_POWER_SEG_SIZE
+    bar_start_x = HUD_POWER_START_X
     active_segs = int(round(power * bar_segments))
     for i in range(bar_segments):
-        pos = (bar_start_x + i * 0.025, bottom_y)
+        pos = (bar_start_x + i * HUD_POWER_STEP_X, bottom_y)
         _set_uniform(prog, "u_offset", pos)
         _set_uniform(prog, "u_scale", seg_size)
         if i < active_segs:
@@ -565,13 +653,17 @@ def _draw_hud(
         vao_ring.render(moderngl.LINE_LOOP, vertices=ring_count)
 
 
-def get_projection_scale(window: Any) -> tuple[float, float]:
+def get_projection_scale(
+    window: Any,
+    margin: float = PROJECTION_MARGIN,
+    max_aspect: float = MAX_PROJECTION_ASPECT,
+) -> tuple[float, float]:
     """Calcula os fatores de projeção (sx, sy) para ajustar a cena e o HUD sem distorção."""
     width, height = glfw.get_framebuffer_size(window)
     if width <= 0 or height <= 0:
         return 1.0, 1.0
     aspect = width / height
-    sy = min(1.42, 0.96 * aspect)
+    sy = min(max_aspect, margin * aspect)
     sx = sy / aspect
     return sx, sy
 
@@ -589,8 +681,8 @@ def render_scene(
 ) -> None:
     """Renderiza a cena completa de sinuca, taco colorido por jogador, animações e HUD."""
     prog = pipeline["prog"]
-    bg_color = (0.05, 0.05, 0.08, 1.0) if night_mode else (0.82, 0.82, 0.85, 1.0)
-    attenuation = 0.40 if night_mode else 1.0
+    bg_color = NIGHT_BG_COLOR if night_mode else DAY_BG_COLOR
+    attenuation = NIGHT_ATTENUATION if night_mode else DAY_ATTENUATION
     felt_color = FELT_COLORS[felt_color_index % len(FELT_COLORS)]
     cur_player = int(game_state.get("current_player", 1)) if game_state else 1
 
@@ -637,8 +729,8 @@ def main() -> None:
     try:
         glfw.get_framebuffer_size = MagicMock(return_value=(800, 600))
         sx, sy = get_projection_scale(dummy_win)
-        assert math.isclose(sx, 0.96)
-        assert math.isclose(sy, 0.96 * (800 / 600))
+        assert math.isclose(sx, PROJECTION_MARGIN)
+        assert math.isclose(sy, PROJECTION_MARGIN * (800 / 600))
 
         glfw.get_framebuffer_size = MagicMock(return_value=(0, 0))
         assert get_projection_scale(dummy_win) == (1.0, 1.0)
