@@ -66,16 +66,21 @@ def _set_uniform(prog: moderngl.Program, name: str, value: Any) -> None:
 
 SHADERS_DIR = Path(__file__).parent / "shaders"
 
-PROJECTION_MARGIN: float = 0.96
-MAX_PROJECTION_ASPECT: float = 1.42
+PROJECTION_MARGIN_X: float = 0.96
+PROJECTION_MARGIN_Y: float = 0.94
+PROJECTION_MARGIN: float = PROJECTION_MARGIN_X
+
+TABLE_WIDTH = 0.90
+TABLE_HEIGHT = 0.45
+CUSHION_THICKNESS = 0.10
 
 DAY_BG_COLOR = (0.82, 0.82, 0.85, 1.0)
 NIGHT_BG_COLOR = (0.05, 0.05, 0.08, 1.0)
 DAY_ATTENUATION = 1.0
 NIGHT_ATTENUATION = 0.40
 
-BAULK_LINE_X = -0.45
-BAULK_D_RADIUS = 0.18
+BAULK_LINE_X = -TABLE_WIDTH / 2.0
+BAULK_D_RADIUS = TABLE_WIDTH / 5.0
 BAULK_D_SEGMENTS = 24
 
 AIM_LINE_DEFAULT_LENGTH = 1.0
@@ -102,7 +107,7 @@ GHOST_TARGET_COLOR = (0.30, 1.00, 0.55, 1.0)
 DEFLECTION_LINE_SCALE = 0.14
 
 HUD_TOP_Y = 0.62
-HUD_BOTTOM_Y = -0.62
+HUD_BOTTOM_Y = -HUD_TOP_Y
 HUD_BADGE_X = 0.92
 HUD_BADGE_RADIUS = 0.025
 HUD_SLOT_RADIUS = 0.017
@@ -114,17 +119,18 @@ HUD_POWER_SEGMENTS = 10
 HUD_POWER_SEG_SIZE = 0.018
 HUD_POWER_START_X = 0.62
 HUD_POWER_STEP_X = 0.025
+HUD_PADDING = 0.015
 
-TABLE_WIDTH = 0.90
-TABLE_HEIGHT = 0.45
-CUSHION_THICKNESS = 0.10
+SCENE_HALF_WIDTH: float = TABLE_WIDTH + CUSHION_THICKNESS
+SCENE_HALF_HEIGHT: float = abs(HUD_TOP_Y) + HUD_BADGE_RADIUS + HUD_PADDING
 
-POCKET_BOTTOM_LEFT = (-0.88, -0.43)
-POCKET_BOTTOM_CENTER = (0.00, -0.45)
-POCKET_BOTTOM_RIGHT = (0.88, -0.43)
-POCKET_TOP_LEFT = (-0.88, 0.43)
-POCKET_TOP_CENTER = (0.00, 0.45)
-POCKET_TOP_RIGHT = (0.88, 0.43)
+POCKET_CORNER_INSET = 0.02
+POCKET_BOTTOM_LEFT = (-(TABLE_WIDTH - POCKET_CORNER_INSET), -(TABLE_HEIGHT - POCKET_CORNER_INSET))
+POCKET_BOTTOM_CENTER = (0.00, -TABLE_HEIGHT)
+POCKET_BOTTOM_RIGHT = (TABLE_WIDTH - POCKET_CORNER_INSET, -(TABLE_HEIGHT - POCKET_CORNER_INSET))
+POCKET_TOP_LEFT = (-(TABLE_WIDTH - POCKET_CORNER_INSET), TABLE_HEIGHT - POCKET_CORNER_INSET)
+POCKET_TOP_CENTER = (0.00, TABLE_HEIGHT)
+POCKET_TOP_RIGHT = (TABLE_WIDTH - POCKET_CORNER_INSET, TABLE_HEIGHT - POCKET_CORNER_INSET)
 
 POCKET_POSITIONS = (
     POCKET_BOTTOM_LEFT,
@@ -483,7 +489,7 @@ def _draw_cue_and_aim(
 
     angle = float(cue.get("angle", 0.0))
     power = float(cue.get("power", 0.0))
-    aim_dist = max(0.08, float(cue.get("aim_distance", 0.45)) - BALL_RADIUS)
+    aim_dist = max(0.08, float(cue.get("aim_distance", TABLE_HEIGHT)) - BALL_RADIUS)
     dir_x, dir_y = cos(angle), sin(angle)
 
     aim_start = (
@@ -655,15 +661,28 @@ def _draw_hud(
 
 def get_projection_scale(
     window: Any,
-    margin: float = PROJECTION_MARGIN,
-    max_aspect: float = MAX_PROJECTION_ASPECT,
+    margin_x: float = PROJECTION_MARGIN_X,
+    margin_y: float = PROJECTION_MARGIN_Y,
+    scene_half_width: float = SCENE_HALF_WIDTH,
+    scene_half_height: float = SCENE_HALF_HEIGHT,
 ) -> tuple[float, float]:
-    """Calcula os fatores de projeção (sx, sy) para ajustar a cena e o HUD sem distorção."""
+    """Calcula os fatores de projeção isotrópica (sx, sy) para enquadrar a mesa e o HUD sem distorção.
+
+    Garante que os eixos X e Y mantenham proporção física 1:1 na tela (pixels quadrados):
+      sx * aspect = sy
+    e que os limites da cena (mesa e HUD) não ultrapassem as margens em NDC [-margin, margin]:
+      sx <= margin_x / scene_half_width
+      sy <= margin_y / scene_half_height
+    """
     width, height = glfw.get_framebuffer_size(window)
     if width <= 0 or height <= 0:
         return 1.0, 1.0
     aspect = width / height
-    sy = min(max_aspect, margin * aspect)
+
+    max_scale_x = margin_x / scene_half_width
+    max_scale_y = margin_y / scene_half_height
+
+    sy = min(max_scale_y, max_scale_x * aspect)
     sx = sy / aspect
     return sx, sy
 
@@ -729,11 +748,18 @@ def main() -> None:
     try:
         glfw.get_framebuffer_size = MagicMock(return_value=(800, 600))
         sx, sy = get_projection_scale(dummy_win)
-        assert math.isclose(sx, PROJECTION_MARGIN)
-        assert math.isclose(sy, PROJECTION_MARGIN * (800 / 600))
+        assert math.isclose(sx, PROJECTION_MARGIN_X / SCENE_HALF_WIDTH)
+        assert math.isclose(sy, (PROJECTION_MARGIN_X / SCENE_HALF_WIDTH) * (800 / 600))
 
         glfw.get_framebuffer_size = MagicMock(return_value=(0, 0))
         assert get_projection_scale(dummy_win) == (1.0, 1.0)
+
+        glfw.get_framebuffer_size = MagicMock(return_value=(1920, 600))
+        aspect_wide = 1920 / 600
+        sx_wide, sy_wide = get_projection_scale(dummy_win)
+        expected_max_sy = PROJECTION_MARGIN_Y / SCENE_HALF_HEIGHT
+        assert math.isclose(sy_wide, expected_max_sy)
+        assert math.isclose(sx_wide, expected_max_sy / aspect_wide)
     finally:
         glfw.get_framebuffer_size = orig_fb
 
@@ -766,7 +792,9 @@ def main() -> None:
         assert "vao_quad" in pipeline
         assert "vao_table" in pipeline
 
-        test_balls = [{"pos": [-0.45, 0.0], "color": (1.0, 1.0, 1.0, 1.0), "pocketed": False}]
+        test_balls = [
+            {"pos": [BAULK_LINE_X, 0.0], "color": (1.0, 1.0, 1.0, 1.0), "pocketed": False}
+        ]
         test_cue = {
             "angle": 0.0,
             "power": 0.5,

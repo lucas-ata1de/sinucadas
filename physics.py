@@ -20,7 +20,7 @@ POCKET_GRAVITY_PULL: float = 1.8
 POCKET_MOUTH_CLEARANCE: float = 1.15
 POCKET_OUTER_RATIO: float = 0.5
 POCKET_CUSHION_RESTITUTION_FACTOR: float = 0.6
-RAYCAST_MAX_DISTANCE: float = 1.90
+RAYCAST_MAX_DISTANCE: float = 2.0 * DEFAULT_TABLE_BOUNDS[0] + 0.10
 
 
 def dot_2d(v1: Sequence[float], v2: Sequence[float]) -> float:
@@ -267,18 +267,19 @@ def main() -> None:
         p_by, v_by, radius=0.032, half_bounds=(0.90, 0.45), restitution=0.5
     )
     assert bounced_y is True
-    assert math.isclose(p_by[1], 0.45 - 0.032)
+    assert math.isclose(p_by[1], DEFAULT_TABLE_BOUNDS[1] - 0.032)
     assert math.isclose(v_by[1], -1.0)
 
     pockets_test = ((0.88, 0.43), (-0.88, -0.43))
     assert check_pocket_fall([0.88, 0.43], pockets_test, 0.055) is True
     assert check_pocket_fall([0.0, 0.0], pockets_test, 0.055) is False
 
+    cue_test_x = -DEFAULT_TABLE_BOUNDS[0] / 2.0
     test_balls = [
-        {"id": 0, "pos": [-0.45, 0.0], "pocketed": False},
+        {"id": 0, "pos": [cue_test_x, 0.0], "pocketed": False},
         {"id": 1, "pos": [0.0, 0.0], "pocketed": False},
     ]
-    ray = compute_aim_raycast([-0.45, 0.0], 0.0, test_balls, radius=0.032)
+    ray = compute_aim_raycast([cue_test_x, 0.0], 0.0, test_balls, radius=0.032)
     assert ray["hit_normal"] is not None
     ghost_x, ghost_y = ray["ghost_pos"]  # type: ignore[misc]
     assert math.isclose(ghost_x, -0.064, abs_tol=1e-4)

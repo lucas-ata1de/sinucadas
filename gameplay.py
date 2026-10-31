@@ -11,7 +11,13 @@ from typing import Any
 
 import glfw
 
-from graphics import POCKET_POSITIONS, POCKET_RADIUS
+from graphics import (
+    BALL_RADIUS,
+    POCKET_POSITIONS,
+    POCKET_RADIUS,
+    TABLE_HEIGHT,
+    TABLE_WIDTH,
+)
 from physics import (
     check_pocket_fall,
     compute_aim_raycast,
@@ -20,12 +26,11 @@ from physics import (
     resolve_elastic_collision,
 )
 
-BALL_RADIUS = 0.032
 MAX_LIVES = 3
 TOTAL_OBJECT_BALLS = 15
 FOUL_PENALTY_POINTS = 4
 
-TABLE_BOUNDS: tuple[float, float] = (0.90, 0.45)
+TABLE_BOUNDS: tuple[float, float] = (TABLE_WIDTH, TABLE_HEIGHT)
 CUSHION_RESTITUTION: float = 0.85
 BALL_RESTITUTION: float = 0.96
 VELOCITY_STOP_EPSILON_SQ: float = 1e-4
@@ -46,9 +51,9 @@ SUBSTEP_SAFE_RATIO: float = 0.45
 SUBSTEP_MIN: int = 4
 SUBSTEP_MAX: int = 16
 
-CUE_BALL_INITIAL_POS: tuple[float, float] = (-0.45, 0.0)
-RACK_ORIGIN_X: float = 0.30
-RACK_DX_FACTOR: float = 0.866
+CUE_BALL_INITIAL_POS: tuple[float, float] = (-TABLE_WIDTH / 2.0, 0.0)
+RACK_ORIGIN_X: float = TABLE_WIDTH / 3.0
+RACK_DX_FACTOR: float = sqrt(3.0) / 2.0
 RACK_DY_FACTOR: float = 1.02
 
 STATE_START = "START"
@@ -378,7 +383,9 @@ def _handle_pocket_event(
     """Aplica regras de pontuação por jogador, faltas na branca/bola 8 e encaçapamento."""
     if ball["id"] == 0:
         ball["pos"] = (
-            _find_free_spot([-0.45, 0.0], all_balls, 0) if all_balls else [-0.45, 0.0]
+            _find_free_spot(list(CUE_BALL_INITIAL_POS), all_balls, 0)
+            if all_balls
+            else list(CUE_BALL_INITIAL_POS)
         )
         ball["vel"] = [0.0, 0.0]
         if game_state is not None:

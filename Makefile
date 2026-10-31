@@ -11,7 +11,7 @@ PYTHON != which uv > "/dev/null" 2>&1 && echo "uv run --quiet python -B" || echo
 export PYTHONDONTWRITEBYTECODE = 1
 export RUFF_CACHE_DIR = /tmp/ruff-cache
 
-.PHONY: all run debug release test check lint clean purge help
+.PHONY: all run debug release test check lint clean purge fmt format fmt-md prettier fmt-check check-fmt help
 
 all: run
 
@@ -32,6 +32,9 @@ help:
 	cmd "test"           "Runs unit tests for all modules (environment, window, physics, graphics, gameplay)"; \
 	cmd "check"          "Checks static types (Pyright) and style/lint (Ruff)"; \
 	cmd "lint"           "Alias for 'make check'"; \
+	sec "Markdown Formatting (Prettier):"; \
+	cmd "fmt, format"    "Recursively formats all .md files with Prettier (skips . and __)"; \
+	cmd "fmt-check"      "Checks formatting compliance of all .md files"; \
 	sec "Maintenance & Cleanup:"; \
 	cmd "clean"          "Recursively removes temporary caches (__pycache__, *.pyc)"; \
 	cmd "purge"          "Removes virtual environments (.venv), caches and residues (OneDrive)"; \
@@ -102,3 +105,32 @@ purge: clean
 	echo "🗑️  Purging virtual environments, caches, and repository residues..."
 	rm -rf .venv env .conda .git 2> "/dev/null" || true
 	echo "✅ Virtual environments and build artifacts purged successfully!"
+
+### ================================
+### CODE FORMATTING & PRETTIER
+### ================================
+fmt format fmt-md prettier:
+	echo "✨ Formatting Markdown (.md) files with Prettier..."
+	if which prettier > "/dev/null" 2>&1; then \
+		PRETTIER="prettier"; \
+	elif which npx > "/dev/null" 2>&1; then \
+		PRETTIER="npx --yes prettier"; \
+	else \
+		echo "  ⚠️  Prettier not found. Install Node.js/npx or prettier globally."; \
+		exit 1; \
+	fi; \
+	find . -type d \( -name ".*" ! -name "." -o -name "__*" \) -prune -o -type f -name "*.md" -exec $$PRETTIER --write {} +
+	echo "✅ Markdown files formatted successfully!"
+
+fmt-check check-fmt:
+	echo "🔍 Checking Markdown (.md) formatting with Prettier..."
+	if which prettier > "/dev/null" 2>&1; then \
+		PRETTIER="prettier"; \
+	elif which npx > "/dev/null" 2>&1; then \
+		PRETTIER="npx --yes prettier"; \
+	else \
+		echo "  ⚠️  Prettier not found. Install Node.js/npx or prettier globally."; \
+		exit 1; \
+	fi; \
+	find . -type d \( -name ".*" ! -name "." -o -name "__*" \) -prune -o -type f -name "*.md" -exec $$PRETTIER --check {} +
+	echo "✅ Markdown formatting check passed!"
