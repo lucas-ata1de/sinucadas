@@ -64,6 +64,42 @@ def _set_uniform(prog: moderngl.Program, name: str, value: Any) -> None:
 
 SHADERS_DIR = Path(__file__).parent / "shaders"
 
+PROJECTION_MARGIN: float = 0.96
+MAX_PROJECTION_ASPECT: float = 1.75
+
+DAY_BG_COLOR = (0.82, 0.82, 0.85, 1.0)
+NIGHT_BG_COLOR = (0.05, 0.05, 0.08, 1.0)
+DAY_ATTENUATION = 1.0
+NIGHT_ATTENUATION = 0.40
+
+BAULK_LINE_X = -0.45
+BAULK_D_RADIUS = 0.18
+BAULK_D_SEGMENTS = 24
+
+AIM_LINE_DEFAULT_LENGTH = 0.45
+AIM_LINE_DEFAULT_DASHES = 8
+AIM_LINE_COLOR = (1.0, 1.0, 0.65, 0.75)
+AIM_LINE_START_OFFSET = 0.015
+AIM_LINE_DASH_RATIO = 1.6
+AIM_LINE_GAP_RATIO = 0.6
+
+CUE_BALL_INITIAL_POS = (-0.45, 0.0)
+RACK_ORIGIN_X = 0.30
+RACK_DX_FACTOR = 0.866
+RACK_DY_FACTOR = 1.02
+
+CUE_BASE_OFFSET = 0.025
+CUE_POWER_TRAVEL = 0.16
+CUE_LENGTH_MID = 0.22
+CUE_LENGTH_BASE = 0.50
+CUE_WIDTH_TIP = 0.005
+CUE_WIDTH_MID = 0.008
+CUE_WIDTH_BASE = 0.013
+
+CUE_COLOR_TIP = (0.92, 0.92, 0.96, 1.0)
+CUE_COLOR_MID = (0.75, 0.50, 0.22, 1.0)
+CUE_COLOR_BASE = (0.28, 0.14, 0.05, 1.0)
+
 TABLE_WIDTH = 0.90
 TABLE_HEIGHT = 0.45
 CUSHION_THICKNESS = 0.10
@@ -138,14 +174,14 @@ def create_scene_balls() -> list[dict[str, Any]]:
     """Gera as 16 bolas na mesa (bola branca na saída e triângulo no foot spot)."""
     cue_ball = {
         "id": 0,
-        "pos": [-0.45, 0.0],
+        "pos": list(CUE_BALL_INITIAL_POS),
         "color": CUE_BALL_COLOR,
     }
     balls: list[dict[str, Any]] = [cue_ball]
-    x0 = 0.30
+    x0 = RACK_ORIGIN_X
     diameter = BALL_RADIUS * 2.0
-    dx = diameter * 0.866
-    dy = diameter * 1.02
+    dx = diameter * RACK_DX_FACTOR
+    dy = diameter * RACK_DY_FACTOR
 
     color_index = 0
     for col in range(5):
@@ -221,14 +257,14 @@ def create_table_geometry() -> tuple[np.ndarray, np.ndarray]:
 
 def create_table_lines() -> np.ndarray:
     """Gera a linha de saída e o semicírculo de baulk ('D' de sinuca) com primitiva de linha."""
-    x_baulk = -0.45
-    r_d = 0.18
+    x_baulk = BAULK_LINE_X
+    r_d = BAULK_D_RADIUS
     vertices = [
         [x_baulk, -TABLE_HEIGHT, 0.0, 1.0, *LINE_COLOR],
         [x_baulk, TABLE_HEIGHT, 0.0, 1.0, *LINE_COLOR],
     ]
 
-    segments = 24
+    segments = BAULK_D_SEGMENTS
     for i in range(segments + 1):
         angle = (pi / 2.0) + (pi * i) / segments
         x = x_baulk + r_d * cos(angle)
@@ -238,14 +274,16 @@ def create_table_lines() -> np.ndarray:
     return np.array(vertices, dtype="f4").ravel()
 
 
-def create_aim_line_geometry(length: float = 0.45, num_dashes: int = 8) -> np.ndarray:
+def create_aim_line_geometry(
+    length: float = AIM_LINE_DEFAULT_LENGTH, num_dashes: int = AIM_LINE_DEFAULT_DASHES
+) -> np.ndarray:
     """Gera segmentos tracejados para a linha guia de mira (LINES) à frente da bola branca."""
     vertices: list[list[float]] = []
-    dash_len = length / (num_dashes * 1.6)
-    gap_len = dash_len * 0.6
-    aim_color = (1.0, 1.0, 0.65, 0.75)
+    dash_len = length / (num_dashes * AIM_LINE_DASH_RATIO)
+    gap_len = dash_len * AIM_LINE_GAP_RATIO
+    aim_color = AIM_LINE_COLOR
 
-    x_cur = BALL_RADIUS + 0.015
+    x_cur = BALL_RADIUS + AIM_LINE_START_OFFSET
     for _ in range(num_dashes):
         x_next = x_cur + dash_len
         vertices.append([x_cur, 0.0, 0.0, 1.0, *aim_color])
@@ -257,17 +295,17 @@ def create_aim_line_geometry(length: float = 0.45, num_dashes: int = 8) -> np.nd
 
 def create_cue_geometry(power: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
     """Gera a malha cônica do taco de sinuca (TRIANGLES com EBO) com recuo proporcional à força."""
-    x_tip = -(BALL_RADIUS + 0.025 + power * 0.16)
-    x_mid = x_tip - 0.22
-    x_base = x_tip - 0.50
+    x_tip = -(BALL_RADIUS + CUE_BASE_OFFSET + power * CUE_POWER_TRAVEL)
+    x_mid = x_tip - CUE_LENGTH_MID
+    x_base = x_tip - CUE_LENGTH_BASE
 
-    w_tip = 0.005
-    w_mid = 0.008
-    w_base = 0.013
+    w_tip = CUE_WIDTH_TIP
+    w_mid = CUE_WIDTH_MID
+    w_base = CUE_WIDTH_BASE
 
-    tip_color = (0.92, 0.92, 0.96, 1.0)
-    mid_color = (0.75, 0.50, 0.22, 1.0)
-    base_color = (0.28, 0.14, 0.05, 1.0)
+    tip_color = CUE_COLOR_TIP
+    mid_color = CUE_COLOR_MID
+    base_color = CUE_COLOR_BASE
 
     vertices = np.array(
         [
@@ -290,11 +328,19 @@ def create_cue_geometry(power: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
 
 def _create_vao(
     ctx: moderngl.Context, prog: moderngl.Program, verts: np.ndarray
-) -> tuple[moderngl.Buffer, moderngl.VertexArray]:
-    """Cria um VBO e um VAO de atributos pos+cor (4f 4f)."""
-    vbo = ctx.buffer(verts.tobytes())
-    vao = ctx.vertex_array(prog, [(vbo, "4f 4f", "v_position", "v_color")])
-    return vbo, vao
+) -> tuple[moderngl.Buffer, moderngl.Buffer, moderngl.VertexArray]:
+    """Cria VBOs separados para posições e cores (Múltiplos VBOs) e os conecta ao VAO."""
+    reshaped = verts.reshape(-1, 8)
+    pos_data = np.ascontiguousarray(reshaped[:, :4], dtype="f4")
+    color_data = np.ascontiguousarray(reshaped[:, 4:], dtype="f4")
+
+    vbo_pos = ctx.buffer(pos_data.tobytes())
+    vbo_color = ctx.buffer(color_data.tobytes())
+    vao = ctx.vertex_array(
+        prog,
+        [(vbo_pos, "4f", "v_position"), (vbo_color, "4f", "v_color")],
+    )
+    return vbo_pos, vbo_color, vao
 
 
 def _create_indexed_vao(
@@ -303,51 +349,72 @@ def _create_indexed_vao(
     verts: np.ndarray,
     indices: np.ndarray,
     dynamic: bool = False,
-) -> tuple[moderngl.Buffer, moderngl.Buffer, moderngl.VertexArray]:
-    """Cria um VBO, um EBO e um VAO indexado de atributos pos+cor (4f 4f)."""
-    vbo = ctx.buffer(verts.tobytes(), dynamic=dynamic)
+) -> tuple[moderngl.Buffer, moderngl.Buffer, moderngl.Buffer, moderngl.VertexArray]:
+    """Cria VBOs separados para posições e cores, um EBO e os conecta ao VAO indexado."""
+    reshaped = verts.reshape(-1, 8)
+    pos_data = np.ascontiguousarray(reshaped[:, :4], dtype="f4")
+    color_data = np.ascontiguousarray(reshaped[:, 4:], dtype="f4")
+
+    vbo_pos = ctx.buffer(pos_data.tobytes(), dynamic=dynamic)
+    vbo_color = ctx.buffer(color_data.tobytes())
     ebo = ctx.buffer(indices.tobytes())
-    vao = ctx.vertex_array(prog, [(vbo, "4f 4f", "v_position", "v_color")], index_buffer=ebo)
-    return vbo, ebo, vao
+    vao = ctx.vertex_array(
+        prog,
+        [(vbo_pos, "4f", "v_position"), (vbo_color, "4f", "v_color")],
+        index_buffer=ebo,
+    )
+    return vbo_pos, vbo_color, ebo, vao
 
 
 def setup_graphics(ctx: moderngl.Context) -> dict[str, Any]:
-    """Compila os shaders e inicializa todos os VBOs, EBOs e VAOs da cena."""
+    """Compila os shaders e inicializa todos os VBOs separados, EBOs e VAOs da cena."""
     prog = create_program(ctx, SHADERS_DIR / "shader.vert", SHADERS_DIR / "shader.frag")
 
     table_verts, table_indices = create_table_geometry()
-    vbo_table, ebo_table, vao_table = _create_indexed_vao(ctx, prog, table_verts, table_indices)
+    vbo_table_pos, vbo_table_color, ebo_table, vao_table = _create_indexed_vao(
+        ctx, prog, table_verts, table_indices
+    )
 
     circle_verts = create_circle_geometry()
-    vbo_circle, vao_circle = _create_vao(ctx, prog, circle_verts)
+    vbo_circle_pos, vbo_circle_color, vao_circle = _create_vao(ctx, prog, circle_verts)
 
     line_verts = create_table_lines()
-    vbo_lines, vao_lines = _create_vao(ctx, prog, line_verts)
+    vbo_lines_pos, vbo_lines_color, vao_lines = _create_vao(ctx, prog, line_verts)
 
     aim_verts = create_aim_line_geometry()
-    vbo_aim, vao_aim = _create_vao(ctx, prog, aim_verts)
+    vbo_aim_pos, vbo_aim_color, vao_aim = _create_vao(ctx, prog, aim_verts)
 
     cue_verts, cue_indices = create_cue_geometry(0.0)
-    vbo_cue, ebo_cue, vao_cue = _create_indexed_vao(
+    vbo_cue_pos, vbo_cue_color, ebo_cue, vao_cue = _create_indexed_vao(
         ctx, prog, cue_verts, cue_indices, dynamic=True
     )
 
     return {
         "prog": prog,
         "vao_table": vao_table,
-        "vbo_table": vbo_table,
+        "vbo_table_pos": vbo_table_pos,
+        "vbo_table_color": vbo_table_color,
+        "vbo_table": vbo_table_pos,
         "ebo_table": ebo_table,
         "vao_circle": vao_circle,
-        "vbo_circle": vbo_circle,
+        "vbo_circle_pos": vbo_circle_pos,
+        "vbo_circle_color": vbo_circle_color,
+        "vbo_circle": vbo_circle_pos,
         "circle_count": len(circle_verts) // 8,
         "vao_lines": vao_lines,
-        "vbo_lines": vbo_lines,
+        "vbo_lines_pos": vbo_lines_pos,
+        "vbo_lines_color": vbo_lines_color,
+        "vbo_lines": vbo_lines_pos,
         "line_count": len(line_verts) // 8,
         "vao_aim": vao_aim,
-        "vbo_aim": vbo_aim,
+        "vbo_aim_pos": vbo_aim_pos,
+        "vbo_aim_color": vbo_aim_color,
+        "vbo_aim": vbo_aim_pos,
         "aim_count": len(aim_verts) // 8,
         "vao_cue": vao_cue,
-        "vbo_cue": vbo_cue,
+        "vbo_cue_pos": vbo_cue_pos,
+        "vbo_cue_color": vbo_cue_color,
+        "vbo_cue": vbo_cue_pos,
         "ebo_cue": ebo_cue,
     }
 
@@ -402,7 +469,8 @@ def _draw_cue_and_aim(
 ) -> None:
     """Atualiza a geometria dinâmica do taco e renderiza a linha guia de mira e o taco."""
     cue_verts, _ = create_cue_geometry(cue.get("power", 0.0))
-    pipeline["vbo_cue"].write(cue_verts.tobytes())
+    cue_pos = np.ascontiguousarray(cue_verts.reshape(-1, 8)[:, :4], dtype="f4")
+    pipeline["vbo_cue_pos"].write(cue_pos.tobytes())
 
     _set_uniform(prog, "u_angle", cue.get("angle", 0.0))
     _set_uniform(prog, "u_offset", tuple(cue_ball_pos))
@@ -414,13 +482,17 @@ def _draw_cue_and_aim(
     _set_uniform(prog, "u_angle", 0.0)
 
 
-def get_projection_scale(window: Any) -> tuple[float, float]:
+def get_projection_scale(
+    window: Any,
+    margin: float = PROJECTION_MARGIN,
+    max_aspect: float = MAX_PROJECTION_ASPECT,
+) -> tuple[float, float]:
     """Calcula os fatores de projeção (sx, sy) para ajustar a cena sem distorção e sem transbordar."""
     width, height = glfw.get_framebuffer_size(window)
     if width <= 0 or height <= 0:
         return 1.0, 1.0
     aspect = width / height
-    sy = min(1.75, 0.98 * aspect)
+    sy = min(max_aspect, margin * aspect)
     sx = sy / aspect
     return sx, sy
 
@@ -436,8 +508,8 @@ def render_scene(
 ) -> None:
     """Renderiza a cena completa de sinuca com projeção isotrópica e iluminação modulada."""
     prog = pipeline["prog"]
-    bg_color = (0.05, 0.05, 0.08, 1.0) if night_mode else (0.82, 0.82, 0.85, 1.0)
-    attenuation = 0.40 if night_mode else 1.0
+    bg_color = NIGHT_BG_COLOR if night_mode else DAY_BG_COLOR
+    attenuation = NIGHT_ATTENUATION if night_mode else DAY_ATTENUATION
     felt_color = FELT_COLORS[felt_color_index % len(FELT_COLORS)]
 
     ctx.clear(*bg_color)
@@ -481,8 +553,8 @@ def main() -> None:
     try:
         glfw.get_framebuffer_size = MagicMock(return_value=(800, 600))
         sx, sy = get_projection_scale(dummy_win)
-        assert math.isclose(sx, 0.98)
-        assert math.isclose(sy, 0.98 * (800 / 600))
+        assert math.isclose(sx, PROJECTION_MARGIN)
+        assert math.isclose(sy, PROJECTION_MARGIN * (800 / 600))
 
         glfw.get_framebuffer_size = MagicMock(return_value=(0, 0))
         assert get_projection_scale(dummy_win) == (1.0, 1.0)

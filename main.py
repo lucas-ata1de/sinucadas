@@ -21,6 +21,14 @@ from graphics import (
 )
 from window import init_window, register_hot_reload, release_resource, update_time
 
+DEFAULT_WINDOW_SIZE: tuple[int, int] = (800, 600)
+ROTATION_SPEED_NORMAL: float = 1.75
+ROTATION_SPEED_PRECISION: float = 0.35
+POWER_SPEED_NORMAL: float = 0.65
+POWER_SPEED_PRECISION: float = 0.15
+CUE_POWER_MIN: float = 0.0
+CUE_POWER_MAX: float = 1.0
+
 
 def _print_banner(is_release: bool) -> None:
     """Exibe no terminal o banner de inicialização e o modo de execução."""
@@ -55,28 +63,28 @@ def _process_cue_controls(cue: dict[str, Any], window: Any, dt: float) -> None:
         glfw.get_key(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS
         or glfw.get_key(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS
     )
-    rotation_speed = 0.35 if is_precision else 1.75
-    power_speed = 0.15 if is_precision else 0.65
+    rotation_speed = ROTATION_SPEED_PRECISION if is_precision else ROTATION_SPEED_NORMAL
+    power_speed = POWER_SPEED_PRECISION if is_precision else POWER_SPEED_NORMAL
 
     if glfw.get_key(window, glfw.KEY_LEFT) == glfw.PRESS:
         cue["angle"] += rotation_speed * dt
     elif glfw.get_key(window, glfw.KEY_A) == glfw.PRESS:
-        cue["angle"] += 0.35 * dt
+        cue["angle"] += ROTATION_SPEED_PRECISION * dt
 
     if glfw.get_key(window, glfw.KEY_RIGHT) == glfw.PRESS:
         cue["angle"] -= rotation_speed * dt
     elif glfw.get_key(window, glfw.KEY_D) == glfw.PRESS:
-        cue["angle"] -= 0.35 * dt
+        cue["angle"] -= ROTATION_SPEED_PRECISION * dt
 
     if glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS:
-        cue["power"] = min(1.0, cue["power"] + power_speed * dt)
+        cue["power"] = min(CUE_POWER_MAX, cue["power"] + power_speed * dt)
     elif glfw.get_key(window, glfw.KEY_W) == glfw.PRESS:
-        cue["power"] = min(1.0, cue["power"] + 0.15 * dt)
+        cue["power"] = min(CUE_POWER_MAX, cue["power"] + POWER_SPEED_PRECISION * dt)
 
     if glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS:
-        cue["power"] = max(0.0, cue["power"] - power_speed * dt)
+        cue["power"] = max(CUE_POWER_MIN, cue["power"] - power_speed * dt)
     elif glfw.get_key(window, glfw.KEY_S) == glfw.PRESS:
-        cue["power"] = max(0.0, cue["power"] - 0.15 * dt)
+        cue["power"] = max(CUE_POWER_MIN, cue["power"] - POWER_SPEED_PRECISION * dt)
 
 
 def _setup_hot_reload(ctx: moderngl.Context, pipeline: dict[str, Any]) -> None:
@@ -163,7 +171,7 @@ def main() -> None:
     key_callback = _create_key_callback(visual_state)
     mode_name = "Release" if is_release else "Debug"
     window, ctx = init_window(
-        size=(800, 600),
+        size=DEFAULT_WINDOW_SIZE,
         title=f"Sinucadas - Interactive 2D Scene [{mode_name}]",
         enable_hot_reload=not is_release,
         user_key_callback=key_callback,

@@ -47,15 +47,59 @@ Cena 2D interativa de sinuca desenvolvida em Python para a **Atividade 02 de Com
 
 ---
 
-## 🚀 Como Executar
+## 🛠️ Setup do Ambiente Virtual
 
-### Pré-requisitos & Ambiente Automático (`uv`)
+Para preparar e reproduzir o ambiente de execução em qualquer sistema operacional, utilize qualquer um dos gerenciadores suportados (`conda`, `venv` nativo ou `uv`):
 
-O ambiente é gerenciado pelo **`uv`** com o mecanismo `--system-site-packages` (dispensando ativação manual com `source`):
+### Windows
 
-```bash
-uv venv --system-site-packages && uv sync
+#### Conda
+```pwsh
+conda create -n cgcourse python=3.11
+conda activate cgcourse
+pip install glfw moderngl numpy pyglm pillow
 ```
+
+#### venv
+```pwsh
+python3.11 -m venv .venv
+.venv\Scripts\activate
+pip install glfw moderngl numpy pyglm pillow
+```
+
+#### uv
+```pwsh
+uv venv --python 3.11
+.venv\Scripts\activate
+uv pip install glfw moderngl numpy pyglm pillow
+```
+
+### Linux / BSD
+
+#### Conda
+```sh
+conda create -n cgcourse python=3.11
+conda activate cgcourse
+pip install glfw moderngl numpy pyglm pillow
+```
+
+#### venv
+```sh
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install glfw moderngl numpy pyglm pillow
+```
+
+#### uv
+```sh
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install glfw moderngl numpy pyglm pillow
+```
+
+---
+
+## 🚀 Como Executar
 
 ### Modos de Execução
 
@@ -114,10 +158,31 @@ Alias:
 make lint
 ```
 
-### Limpeza de Caches Temporários
+### Limpeza de Caches e Ambientes
 
 Remove recursivamente pastas `__pycache__` e arquivos `*.pyc`:
 
 ```bash
 make clean
 ```
+
+Remove ambientes virtuais (.venv), caches e arquivos temporários:
+
+```bash
+make purge
+```
+
+---
+
+## 🧼 Diretrizes de Clean Code & Boas Práticas
+
+Todos os módulos de código deste projeto atendem rigorosamente aos padrões de qualidade acadêmica e Clean Code:
+
+1. **Proibição Estrita de Números Mágicos (`Magic Numbers`):** Valores literais arbitrários no fluxo lógico foram 100% substituídos por constantes semânticas explícitas no topo de cada módulo (`PROJECTION_MARGIN = 0.96`, `BALL_RADIUS = 0.032`, `TABLE_WIDTH = 0.90`, `TABLE_HEIGHT = 0.45`, `ROTATION_SPEED_NORMAL = 1.75`, `ROTATION_SPEED_PRECISION = 0.35`, etc.).
+2. **Padronização de Proporções e Margens:** A matriz de projeção isotrópica utiliza `PROJECTION_MARGIN = 0.96`, mantendo enquadramento estável e proporcionalidade sem distorção.
+3. **Nomenclatura Descritiva e Tipagem Estrita:**
+   - Funções e variáveis em `snake_case`.
+   - Classes em `PascalCase`.
+   - Constantes globais em `UPPER_SNAKE_CASE`.
+   - Shaders com prefixos canônicos (`v_position`, `v_color`, `u_offset`, `u_scale`, `u_angle`, `u_color`, `u_proj`, `u_attenuation`, `v2f_color`, `frag_color`).
+4. **Funções Puras e Desacopladas:** Responsabilidade única por função e liberação determinística de recursos GPU.
